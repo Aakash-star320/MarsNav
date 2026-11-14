@@ -1,12 +1,12 @@
 import { create } from 'zustand';
-import type { DataState, Mode, PanelKey, Pick, Pt, Region, Tab, Target } from '../types/ui';
+import type { ChatAction, ChatMsg, DataState, Mode, PanelKey, Pick, Pt, Region, Tab, Target } from '../types/ui';
 import { STAGES, discoverTargets, planMission, planRoutes } from '../mocks/mock';
 import { combined } from '../utils/derive';
 import { useMissionStore } from './missionStore';
 import { autoTerrainRegion, getViewport } from '../utils/viewport';
 import { API_BASE, AnalysisError, cancelAnalysis, createAnalysis, fetchMapPackage, waitForAnalysis } from '../api/analysis';
 import { regionToBounds, toDashboardTarget } from '../api/mapping';
-import { KM_PER_PX } from '../utils/geo';
+import { DEG_LON_PER_PX, KM_PER_PX } from '../utils/geo';
 import { defaultLayers } from '../utils/layers';
 
 export interface Actions {
@@ -38,6 +38,8 @@ export interface Actions {
   setFocus: (p: Pt | null) => void;
   toggleOnline: () => void;
   toggleAi: () => void;
+  clearChat: () => void;
+  showOnMap: (a: ChatAction) => void;
   setAiDraft: (v: string) => void;
   sendChat: (q: string) => void;
   navStart: () => void;
@@ -69,7 +71,7 @@ const initial: DataState = {
   job: null, err: '', stale: false, selT: null, real: null,
   pk: [{ n: 'Jezero region package (demo)', sz: '148 MB', st: 'Downloaded', up: '2026-11-12' }],
   pan: { L: true, R: false, B: false }, bh: 260, adv: false, lyOpen: false,
-  layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '',
+  layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '', aiBar: null, focusZoom: null,
 };
 
 export const useStore = create<Store>((set, get) => {
@@ -109,6 +111,10 @@ export const useStore = create<Store>((set, get) => {
 
   const BACKEND_STAGE: Record<string, number> = { queued: 0, discovery: 0, selection: 1, downloading: 2, preprocessing: 3, terrain: 4, science: 5 };
 
+  /** Map action that frames a whole region (zoom chosen so the region spans most of the screen). */
+  const regionAction = (r: Region): ChatAction => ({ label: 'Show region on map', at: { x: r.x + r.w / 2, y: r.y + r.h / 2 }, zoom: Math.min(15, Math.max(4, Math.log2(650 / (Math.max(r.w, 1) * DEG_LON_PER_PX)))) });
+  let chatWait = false;     // set when the assistant started an analysis, so it can report the outcome in the chat
+  const botSays = (m: ChatMsg) => set((s) => ({ chat: [...s.chat, m], aiBar: s.aiOpen ? null : m.r }));
   const runRealAnalysis = async (region: Region, terrainOnly = false) => {
     const token = ++realRunToken;
     const alive = () => token === realRunToken;
@@ -149,6 +155,17 @@ export const useStore = create<Store>((set, get) => {
         useMissionStore.setState({ dem: pkg.dem ?? undefined, focus: Date.now(), exaggeration: Math.max(1, Math.min(10, Math.round((0.12 * width) / relief))) });
       } catch (e3d) { console.warn('[analysis] 3D terrain not loaded:', (e3d as Error).message); }
       openPanels(true, false);
+      if (chatWait) {
+        chatWait = false;
+        const found = get().targets;
+        botSays({
+          u: '', r: found.length
+            ? `Analysis finished. ${found.length} hydrated-mineral candidate${found.length > 1 ? 's' : ''} met the screening rule, ranked below. These are heuristic screens of CRISM summary parameters, not identified minerals. Elevation spans ${Math.round(stats.elevation_min_m ?? 0)} to ${Math.round(stats.elevation_max_m ?? 0)} m.`
+            : `Analysis finished. No candidate met the rule in the covered part of the area. That is not evidence that hydrated minerals are absent. Elevation spans ${Math.round(stats.elevation_min_m ?? 0)} to ${Math.round(stats.elevation_max_m ?? 0)} m.`,
+          note: 'Terrain is 463 m resolution: broad planning only, not astronaut-scale hazard detection.',
+          actions: [regionAction(region), ...found.slice(0, 3).map((t) => ({ label: 'Show ' + (t.label ?? t.id), at: { x: t.x, y: t.y }, id: t.id }))],
+        });
+      }
     } catch (e) {
       if (!alive()) return;
       const err = e as AnalysisError;
@@ -156,6 +173,7 @@ export const useStore = create<Store>((set, get) => {
         : err.code === 'area_limit' ? 'That region is too large for one analysis. Select a smaller area.'
         : err.code === 'cancelled' ? 'Cancelled. Nothing was changed.' : 'Analysis failed: ' + err.message;
       set({ job: null, err: msg });
+      if (chatWait) { chatWait = false; botSays({ u: '', r: msg, err: true }); }
     }
   };
 
@@ -249,7 +267,7 @@ export const useStore = create<Store>((set, get) => {
     clearWps: () => { set({ wps: [] }); clearResults(); },
     selectRoute: (i) => set({ sel: i, focus: null }),
     setTab: (t) => { set({ tab: t }); openPanels(false, true); },
-    selectTarget: (id) => set((s) => ({ selT: id, focus: s.targets.find((t) => t.id === id) ?? null })),
+    selectTarget: (id) => set((s) => ({ selT: id, focusZoom: null, focus: s.targets.find((t) => t.id === id) ?? null })),
     targetAsDest: (id) => {
       const t = get().targets.find((x) => x.id === id);
       if (!t) return;
@@ -262,16 +280,19 @@ export const useStore = create<Store>((set, get) => {
       set((s) => ({ mode: 'route', wps: [...s.wps, { x: t.x, y: t.y }] }));
       clearResults();
     },
-    askAboutTarget: (id) => set({ aiOpen: true, aiDraft: 'Tell me about ' + id }),
+    askAboutTarget: (id) => set({ aiOpen: true, aiBar: null, aiDraft: 'Tell me about ' + id }),
     gotoStep: (i) => {
       const s = get(), c = combined(s);
       if (!c) return;
       set({ focus: i < 0 ? s.base : c.sg[i].s.p[c.sg[i].s.p.length - 1] });
     },
-    focusWarning: (at) => { if (at) set({ focus: at }); },
-    setFocus: (p) => set({ focus: p }),
+    focusWarning: (at) => { if (at) set({ focus: at, focusZoom: null }); },
+    setFocus: (p) => set({ focus: p, focusZoom: null }),
     toggleOnline: () => set((s) => ({ online: !s.online })),
-    toggleAi: () => set((s) => ({ aiOpen: !s.aiOpen })),
+    toggleAi: () => set((s) => ({ aiOpen: !s.aiOpen, aiBar: null })),
+    clearChat: () => set({ chat: [], aiDraft: '', aiBar: null }),
+    /** Collapses the chat to a small bar and brings the item into view on the map. */
+    showOnMap: (a) => set((s) => ({ focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
     setAiDraft: (v) => set({ aiDraft: v }),
 
     navStart: () => {
@@ -352,7 +373,7 @@ export const useStore = create<Store>((set, get) => {
     sendChat: (q0) => {
       const q = q0.trim();
       if (!q) return;
-      const say = (r: string, extra: { err?: boolean; note?: string } = {}) =>
+      const say = (r: string, extra: { err?: boolean; note?: string; steps?: string[]; actions?: ChatAction[] } = {}) =>
         set((s) => ({ chat: [...s.chat, { u: q, r, ...extra }], aiDraft: '' }));
       if (!get().online) { say('Service unavailable: the hosted assistant needs internet. Manual planning still works.', { err: true }); return; }
       const l = q.toLowerCase().replace(/\b(two|four)\b/g, (m) => (m === 'two' ? '2' : '4'));
@@ -371,7 +392,9 @@ export const useStore = create<Store>((set, get) => {
       if (/analy[sz]e/.test(l)) {
         set({ mode: 'analyze', pick: null });
         if (!get().region) set({ region: FULL_MAP });
+        chatWait = true;
         get().analyze();
+        if (get().err) chatWait = false;            // refused (offline, nothing selected): the error is shown and nothing will report back
         did.push('Started Analyze Region');
       } else if (/mineral|mission|sites/.test(l)) {
         set({ mode: 'mission', pick: null });
@@ -385,7 +408,8 @@ export const useStore = create<Store>((set, get) => {
         else { get().generate(); did.push('Started Generate Routes'); }
       }
       if (!did.length) { say('I can analyze a region, plan a route or mission, change limits, or explain science. Try a suggestion.'); return; }
-      say('Verified actions applied: ' + did.join('; ') + '.');
+const rg = get().region, acts: ChatAction[] = rg && did.some((d) => /Analyze/.test(d)) ? [regionAction(rg)] : [];
+      say('Done. I applied these checked actions; results appear on the map and in the Results panel.', { steps: did, actions: acts });
     },
   };
 });

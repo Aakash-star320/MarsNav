@@ -4,6 +4,7 @@ import SetupPanel from './features/dashboard/SetupPanel';
 import MapWorkspace from './features/dashboard/MapWorkspace';
 import BottomPanel from './features/dashboard/BottomPanel';
 import ResultsPanel from './features/dashboard/ResultsPanel';
+import ChatPanel from './features/dashboard/ChatPanel';
 import { startStoreBridge } from './store/bridge';
 
 // The Mars map module ships its own global stylesheet, so it is loaded only for the map view and
@@ -25,6 +26,7 @@ function Dashboard() {
           <BottomPanel />
         </div>
         <ResultsPanel />
+        <ChatPanel />
       </div>
     </>
   );

@@ -173,7 +173,7 @@ export default function MapCanvas() {
   // Bring a focused item (for example a selected target) into view.
   useEffect(() => {
     const m = mapRef.current;
-    if (m && s.focus) m.setView(toLatLng(s.focus), Math.max(m.getZoom(), 12.5));
+    if (m && s.focus) m.setView(toLatLng(s.focus), s.focusZoom ?? Math.max(m.getZoom(), 12.5));
   }, [s.focus]);
 
   const fit = () => mapRef.current?.fitBounds([toLatLng({ x: 0, y: H }), toLatLng({ x: W, y: 0 })]);
