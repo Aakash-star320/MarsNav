@@ -29,6 +29,8 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 /** Sidebar section for the map view: analyze the selected area with real data and read the results. */
 export function AnalysisPanel() {
   const aoi = useMissionStore((s) => s.aoi);
+  const targets = useMissionStore((s) => s.targets);
+  const selected = useMissionStore((s) => s.selectedTargetId);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [limit, setLimit] = useState(12);
   const running = phase.kind === 'running';
@@ -104,9 +106,22 @@ export function AnalysisPanel() {
               <small> ({stats.slope_exceedance_cells.toLocaleString()} of {stats.slope_denominator_cells.toLocaleString()} cells with a defined slope)</small>
             </p>
           </div>
+          {targets.length > 0 && (
+            <div className="ap-targets">
+              <b>Spectral candidates</b>
+              <small>CRISM summary parameters, heuristic screen. Not identified minerals: check the spectrum.</small>
+              {targets.slice(0, 6).map((t) => (
+                <button key={t.id} className={t.id === selected ? 'on' : ''} onClick={() => useMissionStore.getState().setSelectedTarget(t.id)}>
+                  <span>{t.title.replace('Hydrated hydroxylated-mineral candidate ', '')}</span>
+                  <em>rank {t.relevance_score.toFixed(2)} · {t.confidence} confidence</em>
+                  <small>{t.location.latitude_deg.toFixed(4)}° N, {t.location.longitude_deg_east.toFixed(4)}° E</small>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="ap-sources">
             <b>Sources</b>
-            <p>Elevation: USGS MOLA 463 m global DEM. Imagery: Viking MDIM 2.1 colour mosaic (232 m/px) via NASA Mars Trek.</p>
+            <p>Elevation: USGS MOLA 463 m global DEM. Imagery: Viking MDIM 2.1 colour mosaic (232 m/px) via NASA Mars Trek.{targets.length > 0 && " Spectral parameters: CRISM MTRDR summary products (PDS)."}</p>
           </div>
         </>
       )}

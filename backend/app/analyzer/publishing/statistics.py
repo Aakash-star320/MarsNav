@@ -17,7 +17,9 @@ def _stats(a: np.ndarray) -> tuple[float, float, float] | None:
     return (float(v.min()), float(v.max()), float(v.mean())) if v.size else None
 
 
-def compute_statistics(manifest: TerrainManifest, arrays: dict[str, np.ndarray], slope_limit_deg: float = 12.0) -> RegionStatistics:
+def compute_statistics(
+    manifest: TerrainManifest, arrays: dict[str, np.ndarray], slope_limit_deg: float = 12.0, science_candidates: int = 0,
+) -> RegionStatistics:
     rows, cols = manifest.shape
     g = manifest.grid
     valid = arrays["valid"]
@@ -45,5 +47,5 @@ def compute_statistics(manifest: TerrainManifest, arrays: dict[str, np.ndarray],
         slope_limit_deg=slope_limit_deg, slope_denominator_cells=int(sv.size),
         slope_exceedance_cells=int((sv > slope_limit_deg).sum()),
         slope_exceedance_fraction=float((sv > slope_limit_deg).mean()) if sv.size else None,
-        science_candidates=0, notes=notes,
+        science_candidates=science_candidates, notes=notes,
     )

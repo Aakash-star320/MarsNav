@@ -146,7 +146,7 @@ class ToolExecutor:
         terrain = self._svc.load_terrain(a.analysis_id)
         if terrain is None:
             raise ToolFailure("unavailable", "the terrain arrays are missing or failed verification")
-        stats = compute_statistics(terrain[0], terrain[1], a.slope_limit_deg)
+        stats = compute_statistics(terrain[0], terrain[1], a.slope_limit_deg, len(result.science_targets))
         return {
             "analysis_id": str(result.id), "analysis_version": result.analysis_version,
             "bounds": result.layers[0].bounds.model_dump(mode="json") if result.layers else None,

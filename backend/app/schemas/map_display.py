@@ -9,7 +9,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from .contracts import BoundingBox, ProcessedLayer
+from .contracts import BoundingBox, ProcessedLayer, ScienceTarget
 
 
 class DemProjection(BaseModel):
@@ -78,4 +78,5 @@ class MapPackage(BaseModel):
     layers: list[MapLayerEntry]
     dem: DemPayload | None = None
     statistics: RegionStatistics | None = None
+    science_targets: list[ScienceTarget] = Field(default_factory=list)
     notes: list[str] = Field(default_factory=list)

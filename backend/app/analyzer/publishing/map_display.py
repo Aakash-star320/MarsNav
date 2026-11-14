@@ -20,7 +20,7 @@ from typing import Callable
 import numpy as np
 
 from app.analyzer.preprocessing.terrain_bundle import SPHERE_RADIUS_M, TerrainManifest
-from app.schemas import BoundingBox, CoverageStatus, ProcessedLayer
+from app.schemas import BoundingBox, CoverageStatus, ProcessedLayer, ScienceTarget
 from app.schemas.map_display import DemPayload, DemProjection, MapLayerEntry, MapPackage
 
 from .statistics import compute_statistics
@@ -111,7 +111,7 @@ def render_layer_png(arrays: dict[str, np.ndarray], array_name: str, max_dim: in
 
 def build_map_package(
     manifest: TerrainManifest, arrays: dict[str, np.ndarray], layer_url: Callable[[str], str], max_dim: int = DEFAULT_MAX_DIM,
-    slope_limit_deg: float = 12.0,
+    slope_limit_deg: float = 12.0, science_targets: list[ScienceTarget] | None = None,
 ) -> MapPackage:
     disp, k = display_arrays(arrays, max_dim)
     shape = disp["valid"].shape
@@ -152,7 +152,8 @@ def build_map_package(
     )
     return MapPackage(
         analysis_id=str(manifest.analysis_id), layers=entries, dem=dem, notes=notes,
-        statistics=compute_statistics(manifest, arrays, slope_limit_deg),
+        statistics=compute_statistics(manifest, arrays, slope_limit_deg, len(science_targets or [])),
+        science_targets=list(science_targets or []),
     )
 
 

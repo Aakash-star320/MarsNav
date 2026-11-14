@@ -1,0 +1,268 @@
+{
+ "BRCAR": {
+  "bands": [
+   "D2300",
+   "BD2500_2",
+   "BD1900_2"
+  ],
+  "scaling": [
+   0.00013358,
+   4.3298e-05,
+   0.00018481
+  ],
+  "description": [
+   "Shows information related to Mg carbonate minerals. Blueish- or yellowish-white colors often indicate carbonate, while red/magenta colors may indicate Fe/Mg-phyllosilicate. Blue colors likely indicative of other hydrated minerals. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRCHL": {
+  "bands": [
+   "ISLOPE1",
+   "BD3000",
+   "IRR2"
+  ],
+  "scaling": [
+   0.00014684,
+   0.0034269,
+   0.0003208
+  ],
+  "description": [
+   "Shows information related to inferred chloride deposits detected from THEMIS data and spatially associated hydrated mineral deposits. Of the THEMIS-based chloride detections studied to date, these surfaces have a relatively positive near-infrared spectral slope, so chlorides often appear blue in the CHL browse product. Yellow/green colors are often indicative of hydrated minerals. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRCR2": {
+  "bands": [
+   "MIN2295_2480",
+   "MIN2345_2537",
+   "CINDEX2"
+  ],
+  "scaling": [
+   4.3291e-05,
+   2.3633e-05,
+   0.00046009
+  ],
+  "description": [
+   "Shows information related to carbonate minerals. Red/magenta colors often indicate Mg-carbonates, while green/cyan colors often indicate Fe/Ca-carbonates. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRFAL": {
+  "bands": [
+   "R2529",
+   "R1506",
+   "R1080"
+  ],
+  "scaling": [
+   0.00038385,
+   0.00029153,
+   0.00024413
+  ],
+  "description": [
+   "An enhanced infrared false color representation of the scene. The wavelengths chosen highlight differences between key mineral groups. Red/orange colors are usually characteristic of olivine-rich material, blue/green colors often indicate altered material, and gray/brown colors often indicate basaltic material. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRFEM": {
+  "bands": [
+   "BD530_2",
+   "SH600_2",
+   "BDI1000VIS"
+  ],
+  "scaling": [
+   0.001109,
+   0.00010019,
+   0.00013694
+  ],
+  "description": [
+   "Shows information related to Fe minerals and encodes visible and near- infrared spectral structure related to electronic absorption. FEM is particularly sensitive to ferric and ferrous mineral absorptions, as well as negative slopes due to dust coatings or compacted dust texture. Red colors may indicate nanophase or crystalline ferric oxides, whereas blue colors are often dust-free or more mafic surfaces. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRFM2": {
+  "bands": [
+   "BD530_2",
+   "BD920_2",
+   "BDI1000VIS"
+  ],
+  "scaling": [
+   0.001109,
+   8.5913e-05,
+   0.00013694
+  ],
+  "description": [
+   "Shows complementary information related to Fe minerals, sharing two of three components with FEM. The FM2 browse product is particularly sensitive to olivine and pyroxene, as well as nanophase ferric oxide and crystalline ferric or ferrous minerals. Red colors often indicate the presence of nanophase ferric oxides, green colors may suggest coarser-grained Fe-bearing minerals, and blue colors are often dust- free or more mafic surfaces. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRHYD": {
+  "bands": [
+   "SINDEX2",
+   "BD2100_2",
+   "BD1900_2"
+  ],
+  "scaling": [
+   9.5991e-05,
+   7.6784e-05,
+   0.00018481
+  ],
+  "description": [
+   "Shows information related to bound water in minerals. Polyhydrated sulfates have strong 1900 nm and 2400 nm absorption bands, and may appear magenta in the HYD browse product. Monohydrated sulfates have a strong 2100 nm absorption and a weak 2400 nm absorption band, and may appear yellow/green in the HYD browse product. Blue colors likely indicate other hydrated minerals. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRHYS": {
+  "bands": [
+   "MIN2250",
+   "BD2250",
+   "BD1900R2"
+  ],
+  "scaling": [
+   3.9216e-05,
+   3.6205e-05,
+   0.00019584
+  ],
+  "description": [
+   "Shows complementary information related to Si/Al-hydroxylated minerals and may be used to differentiate between hydrated silica and Al- smectite phyllosilicates. White colors indicate the presence of hydrated silica, while bluer colors indicate Al-OH minerals or other hydrated minerals. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRIC2": {
+  "bands": [
+   "R3920",
+   "BD1500_2",
+   "BD1435"
+  ],
+  "scaling": [
+   0.00080517,
+   0.00016418,
+   6.1074e-05
+  ],
+  "description": [
+   "Shows complementary information related to water or carbon dioxide frost or ice. CO2 frost or ice displays a sharp 1435 nm absorption and often appears blue in the IC2 browse product. Water ice or frost has a strong 1500 nm absorption and often appears green in the IC2 browse product. The reflectance at 3920 is a proxy for surface temperature, so redder colors likely represent ice-free surfaces. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRICE": {
+  "bands": [
+   "BD1900_2",
+   "BD1500_2",
+   "BD1435"
+  ],
+  "scaling": [
+   0.00018481,
+   0.00016418,
+   6.1074e-05
+  ],
+  "description": [
+   "Shows information related to water or carbon dioxide frost or ice. CO2 frost or ice displays a sharp 1435 nm absorption and thus appears blue in the ICE browse product. Water ice or frost has strong 1500 and 1900 nm absorptions and thus may appear yellow in the ICE browse product. Red colors often indicate hydrated minerals. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRIRA": {
+  "bands": [
+   "R1330",
+   "R1330",
+   "R1330"
+  ],
+  "scaling": [
+   0.00027,
+   0.00027,
+   0.00027
+  ],
+  "description": [
+   "Shows I/F variability at 1330 nm as a proxy for IR albedo and may be used to correlate spectral variations with morphology. IRA is a single greyscale image replicated into a three-band RGB product for structural consistency with the browse product suite."
+  ]
+ },
+ "BRMAF": {
+  "bands": [
+   "OLINDEX3",
+   "LCPINDEX2",
+   "HCPINDEX2"
+  ],
+  "scaling": [
+   0.0010196,
+   7.9592e-05,
+   0.00010116
+  ],
+  "description": [
+   "Shows information related to mafic mineralogy. Olivine and Fe- phyllosilicate share a 1000-1700 nm bowl-shaped absorption and may appear red in the MAF browse product. Low- and high-Ca pyroxene display an additional ~2000 nm absorption and may appear green/cyan and blue/magenta, respectively. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRPAL": {
+  "bands": [
+   "BD2210_2",
+   "BD2190",
+   "BD2165"
+  ],
+  "scaling": [
+   1.7396e-05,
+   3.9216e-05,
+   3.9216e-05
+  ],
+  "description": [
+   "Shows information related to cation composition of hydroxylated minerals including Al-phyllosilicate and hydrated silica. Redder colors may indicate the presence of Al-smectites or hydrated silica, bluer colors may indicate alunite, and white colors may indicate the presence of kaolinite group minerals. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRPFM": {
+  "bands": [
+   "BD2355",
+   "D2300",
+   "BD2290"
+  ],
+  "scaling": [
+   3.2151e-05,
+   0.00013358,
+   4.8372e-05
+  ],
+  "description": [
+   "Shows information related to cation composition of hydroxylated minerals including phyllosilicate. Redder colors may indicate the presence of prehnite, chlorite, epidote, or Ca/Fe carbonate, while bluer colors may indicate the presence of Mg/Fe-smectites or Mg- carbonate. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRPHY": {
+  "bands": [
+   "D2300",
+   "D2200",
+   "BD1900R2"
+  ],
+  "scaling": [
+   0.00013358,
+   6.8627e-05,
+   0.00019584
+  ],
+  "description": [
+   "Shows information related to hydroxylated minerals including phyllosilicate. Mg/Fe-OH bearing minerals may appear red, or magenta when hydrated. Al/Si-OH bearing minerals may appear green, or cyan when hydrated. Blue colors may indicate other hydrated minerals. See Viviano-Beck et al. [2014] for details. Analysis of CRISM spectra must be used to match absorption band positions and relative strength for positive mineral identification."
+  ]
+ },
+ "BRTAN": {
+  "bands": [
+   "R2529",
+   "R1330",
+   "R770"
+  ],
+  "scaling": [
+   0.00038385,
+   0.00027,
+   0.00024918
+  ],
+  "description": []
+ },
+ "BRTRU": {
+  "bands": [
+   "R600",
+   "R530",
+   "R440"
+  ],
+  "scaling": [
+   0.0001567,
+   7.5521e-05,
+   4.2427e-05
+  ],
+  "description": []
+ },
+ "BRVNA": {
+  "bands": [
+   "R770",
+   "R770",
+   "R770"
+  ],
+  "scaling": [
+   0.00024918,
+   0.00024918,
+   0.00024918
+  ],
+  "description": [
+   "Shows the I/F variability at 770 nm as a proxy for VNIR albedo and may be used to correlate spectral variations with morphology. VNA is a single greyscale image replicated into a three-band RGB product for structural consistency with the browse product suite."
+  ]
+ }
+}

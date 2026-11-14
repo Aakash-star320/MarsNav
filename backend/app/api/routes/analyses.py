@@ -12,6 +12,8 @@ from app.analyzer.integration.routing_terrain import TerrainAccessError, load_ro
 from app.analyzer.orchestration.pipeline import AnalyzerDeps
 from app.analyzer.orchestration.service import AnalysisService
 from app.analyzer.publishing.map_display import build_map_package, render_layer_png
+from app.analyzer.science.pipeline import ScienceDeps
+from app.connectors.common.http import get_json, get_text
 from app.connectors.usgs.mola import http_range_fetcher
 from app.core.config import settings
 from app.schemas import AnalysisJob, CreateAnalysisRequest, JobStage, RegionalAnalysisResult
@@ -25,6 +27,7 @@ def get_service() -> AnalysisService:
     deps = AnalyzerDeps(
         fetch_range=http_range_fetcher(), out_dir=settings.data_root / "derived" / "analyses",
         max_area_km2=settings.analyzer_max_area_km2, max_download_bytes=settings.analyzer_max_download_bytes,
+        science=ScienceDeps(fetch_json=get_json, fetch_text=get_text, range_fetcher_for=lambda url: http_range_fetcher(url, timeout_s=120.0)),
     )
     return AnalysisService(deps)
 
@@ -70,9 +73,10 @@ def analysis_map(
     if terrain is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no completed analysis terrain for this id")
     manifest, arrays = terrain
+    result = service.get_result(analysis_id)
     return build_map_package(
         manifest, arrays, lambda kind: str(request.url_for("analysis_layer_png", analysis_id=analysis_id, kind=kind)),
-        slope_limit_deg=slope_limit_deg,
+        slope_limit_deg=slope_limit_deg, science_targets=result.science_targets if result else [],
     )
 
 

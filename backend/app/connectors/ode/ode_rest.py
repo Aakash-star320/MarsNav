@@ -48,15 +48,15 @@ def to_ode_longitude(lon_deg_east: float) -> float:
 
 def build_product_query(
     aoi: BoundingBox, *, ihid: str, iid: str, pt: str, results: str = "mp", limit: int = 25, offset: int = 0,
-    base_url: str = DEFAULT_BASE_URL, target: str = "mars",
+    base_url: str = DEFAULT_BASE_URL, target: str = "mars", loc: str = "b",
 ) -> str:
-    """URL for a bounding-box product search (``loc=b``: product bounding box intersects the AOI)."""
+    """URL for a product search. ``loc=b``: the product bounding box intersects the AOI; ``loc=f``: its footprint does."""
     west, east = to_ode_longitude(aoi.west_deg_east), to_ode_longitude(aoi.east_deg_east)
     if west >= east:
         raise OdeError("AOI crosses the 0/360 seam in ODE longitude; split it before querying")
     params = {
         "query": "products", "target": target, "results": results, "ihid": ihid, "iid": iid, "pt": pt,
-        "minlat": aoi.south_deg, "maxlat": aoi.north_deg, "westernlon": west, "easternlon": east, "loc": "b",
+        "minlat": aoi.south_deg, "maxlat": aoi.north_deg, "westernlon": west, "easternlon": east, "loc": loc,
         "limit": limit, "offset": offset, "output": "JSON",
     }
     return f"{base_url}?{urlencode(params)}"
@@ -105,7 +105,9 @@ def _parse_time(value: str | None) -> datetime | None:
         return None
 
 
-def parse_product_results(payload: dict[str, Any], *, category: DatasetCategory, aoi: BoundingBox) -> list[DatasetRecord]:
+def parse_product_results(
+    payload: dict[str, Any], *, category: DatasetCategory, aoi: BoundingBox, file_pattern: str | None = None,
+) -> list[DatasetRecord]:
     """Normalize an ODE JSON reply into DatasetRecords.
 
     ``category`` comes from the caller's query (instrument/product type), never guessed from the
@@ -130,7 +132,8 @@ def parse_product_results(payload: dict[str, Any], *, category: DatasetCategory,
         percent = 100.0 * bounds_area_m2(overlap) / bounds_area_m2(aoi) if overlap else 0.0
         status = (CoverageStatus.available if percent >= 99.5 else CoverageStatus.partial) if overlap else (
             CoverageStatus.unavailable if footprint else CoverageStatus.unknown)
-        files = [f for f in _as_list((p.get("Product_files") or {}).get("Product_file")) if f.get("Type") == "Product"]
+        listed = _as_list((p.get("Product_files") or {}).get("Product_file"))
+        files = [f for f in listed if (re.search(file_pattern, f.get("FileName", ""), re.IGNORECASE) if file_pattern else f.get("Type") == "Product")]
         records.append(DatasetRecord(
             id=uuid5(NAMESPACE_URL, f"ode:{product_id}:{p.get('Product_version_id') or ''}"),
             source="ode", product_id=product_id, version=p.get("Product_version_id"),
