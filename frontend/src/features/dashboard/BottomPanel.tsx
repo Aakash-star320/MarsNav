@@ -27,7 +27,6 @@ function DataTab() {
 }
 
 function OfflineTab() {
-  const budget = useStore((st) => st.dataBudget);
   return (
     <>
       <table>
@@ -37,7 +36,7 @@ function OfflineTab() {
           <td>Reading new elevation, imagery tiles and CRISM data; the hosted AI model; the NASA catalog check.</td>
         </tr></tbody>
       </table>
-      <p className="nt">There is no download manager or offline map package yet. {budget ? `Data read this session: ${(budget.session_used_bytes / 1048576).toFixed(1)} MB of ${Math.round(budget.session_cap_bytes / 1048576)} MB.` : ''}</p>
+      <p className="nt">There is no download manager or offline map package yet.</p>
     </>
   );
 }

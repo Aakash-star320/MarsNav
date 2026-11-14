@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
-import { fmtMB } from '../../api/objectives';
 import { useStore } from '../../store/dashboardStore';
 import type { DataState, Mode, Pick } from '../../types/ui';
 import { fmtCoord, KM_PER_PX, lonLatToPx, parseCoordPairs } from '../../utils/geo';
@@ -120,13 +119,6 @@ function Layers() {
   );
 }
 
-/** How much data this session has read from the NASA/USGS sources, against the cap; hidden when the backend does not say. */
-function DataUsed() {
-  const b = useStore((s) => s.dataBudget);
-  if (!b) return null;
-  return <p className="nt" data-testid="data-used">Data read this session: {fmtMB(b.session_used_bytes)} MB of {fmtMB(b.session_cap_bytes)} MB.</p>;
-}
-
 export default function SetupPanel() {
   const s = useStore();
   const { loadObjectives, refreshDataBudget } = s;
@@ -187,7 +179,6 @@ export default function SetupPanel() {
           </>
         )}
         <Layers />
-        <DataUsed />
       </div>
       <div className="pf">
         {s.stale && <p className="nt wn" style={{ margin: '0 0 6px' }}>Settings changed. Press {primaryLabel} to update results.</p>}

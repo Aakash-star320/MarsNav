@@ -70,18 +70,3 @@ describe('the scientific objective select', () => {
     expect(screen.queryByText('Data coverage')).toBeNull();
   });
 });
-
-describe('the data used line', () => {
-  it('shows what this session has read against the cap', async () => {
-    backend();
-    render(<SetupPanel />);
-    await waitFor(() => expect(screen.getByTestId('data-used').textContent).toBe('Data read this session: 12 MB of 256 MB.'));
-  });
-
-  it('is hidden when the backend does not report it', async () => {
-    backend({ budget: null });
-    render(<SetupPanel />);
-    await waitFor(() => expect(objectiveOptions()).toHaveLength(3));
-    expect(screen.queryByTestId('data-used')).toBeNull();
-  });
-});
