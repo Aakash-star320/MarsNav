@@ -14,6 +14,7 @@ from app.analyzer.orchestration.service import AnalysisService
 from app.analyzer.publishing.map_display import build_map_package, render_hazard_png, render_layer_png
 from app.analyzer.publishing.science_layer import render_science_png, science_map_entry
 from app.analyzer.science.pipeline import ScienceDeps
+from app.analyzer.validation.data_budget import get_budget
 from app.connectors.common.http import get_json, get_text
 from app.connectors.usgs.mola import http_range_fetcher
 from app.core.config import settings
@@ -30,7 +31,7 @@ def get_service() -> AnalysisService:
         max_area_km2=settings.analyzer_max_area_km2, max_download_bytes=settings.analyzer_max_download_bytes,
         science=ScienceDeps(fetch_json=get_json, fetch_text=get_text, range_fetcher_for=lambda url: http_range_fetcher(url, timeout_s=120.0)),
     )
-    return AnalysisService(deps)
+    return AnalysisService(deps, budget=get_budget())
 
 
 @router.post("/analyses", response_model=AnalysisJob, status_code=status.HTTP_202_ACCEPTED)

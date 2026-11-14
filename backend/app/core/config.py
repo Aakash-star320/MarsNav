@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173"
     analyzer_max_area_km2: float = 2500.0          # analysis area limit (50 km x 50 km)
     analyzer_max_download_bytes: int = 64 * 1024 * 1024
+    analyzer_session_cap_bytes: int = 256 * 1024 * 1024   # everything read from remote sources since the backend started
     gemma_api_key: str = ""                       # empty: the assistant stays rule-based (set both to enable the model)
     gemma_model: str = ""
     gemma_api_base: str = "https://generativelanguage.googleapis.com/v1beta"

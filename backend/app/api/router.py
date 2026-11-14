@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from .routes import analyses, assistant, health, contracts, mission_plans, objectives, routing
+from .routes import analyses, assistant, availability, health, contracts, mission_plans, objectives, routing
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health.router, tags=["system"])
@@ -9,3 +9,4 @@ api_router.include_router(contracts.router, tags=["contracts"])
 api_router.include_router(routing.router, tags=["routing"])
 api_router.include_router(mission_plans.router, tags=["mission-plans"])
 api_router.include_router(objectives.router, tags=["objectives"])
+api_router.include_router(availability.router, tags=["objectives"])
