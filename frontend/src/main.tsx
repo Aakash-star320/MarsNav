@@ -1,5 +1,10 @@
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import "./styles.css";
-const App = () => <main><h1>MarsNav</h1><p>Integration scaffold. See the shared contracts and member tasks before implementing features.</p></main>;
-createRoot(document.getElementById("root")!).render(<StrictMode><App /></StrictMode>);
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import App from './App';
+import './styles.css';
+
+ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>,
+);
