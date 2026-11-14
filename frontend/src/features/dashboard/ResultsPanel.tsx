@@ -101,7 +101,7 @@ function MissionSummary() {
             <BudgetBar b={b} />
             <p>Score is a ranking value, not a probability.</p>
           </div>
-          {m.ex.length > 0 && <p className="nt"><b>Excluded:</b> {m.ex.map((e) => `${e.t.id} (${e.r})`).join('; ')}</p>}
+          {m.ex.length > 0 && <p className="nt"><b>Excluded:</b> {m.ex.map((e) => `${e.t.label ?? e.t.id} (${e.r})`).join('; ')}</p>}
         </>
       )}
     </>
@@ -165,7 +165,7 @@ export default function ResultsPanel() {
                   <i>→</i>
                   <div>{x.n}<span>{x.s.d.toFixed(1)} km · {fmtDuration(x.s.t)} · computed{x.s.over.length ? <> · <b className="wn">{x.s.over.length} steep samples</b></> : null}</span></div>
                 </div>
-                {x.t && <div className="st" onClick={() => s.gotoStep(i)}><i>◆</i><div>Examine {x.t.id}<span>{s.exam} min · {s.obj} · assumption</span></div></div>}
+                {x.t && <div className="st" onClick={() => s.gotoStep(i)}><i>◆</i><div>Examine {x.t.label ?? x.t.id}<span>{s.exam} min · {s.obj} · assumption</span></div></div>}
               </div>
             ))}
             <p className="nt">Steps are planned actions; distances come from the mock route model.</p>

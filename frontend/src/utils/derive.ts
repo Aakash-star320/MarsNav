@@ -13,7 +13,7 @@ export interface Budget { a: BudgetPart[]; T: number; ok: boolean; u: number }
 export function segsOf(s: DataState): Seg[] {
   if (s.mode === 'mission' && s.mission?.feasible && s.mission.ret) {
     return [
-      ...s.mission.legs.map((l, i) => ({ s: l.s, c: LEG_COLORS[i % 3], n: `Leg ${i + 1} → ${l.t.id}`, t: l.t })),
+      ...s.mission.legs.map((l, i) => ({ s: l.s, c: LEG_COLORS[i % 3], n: `Leg ${i + 1} → ${l.t.label ?? l.t.id}`, t: l.t })),
       { s: s.mission.ret, c: RETURN_COLOR, dashed: true, n: 'Return to base' },
     ];
   }
