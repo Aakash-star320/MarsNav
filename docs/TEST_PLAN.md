@@ -12,4 +12,4 @@ Use synthetic fixtures for unit/component boundaries, clearly labelled; final de
 | UI | AOI triggers job, map/dashboard synchronization, typed mock responses, honest missing layers, route/replan/HUD rendering | Frontend |
 | Integration | OpenAPI/type compatibility, one API app, smoke flow against fixtures | Aakash |
 
-CI blocks merge on backend import/contract tests and frontend lint/type/test. At event, add processing integration tests marked `real_data` and do not run them by default. Acceptance means all core demo flow states work—including partial data/no-route—not merely a successful happy path.
+CI blocks merge on backend import/contract tests and frontend lint/type/test. Add processing integration tests marked `real_data` and do not run them by default. Acceptance means all core demo flow states work—including partial data/no-route—not merely a successful happy path.
