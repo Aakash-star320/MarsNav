@@ -83,21 +83,23 @@ function NavHud() {
   const sg = c.sg[c.b.filter((x) => x <= i).length - 1], done = i >= st.p.length - 1;
   return (
     <div className="ov" id="hud">
-      <b>Navigation (simulation, not real Mars GPS)</b>
-      <div className="g" style={{ margin: '5px 0' }}>
-        <span>Segment <b>{sg.n}</b></span><span>Remaining <b>{rem.toFixed(1)} km</b></span>
-        <span>Time left <b>{fmtDuration((rem / 2) * 60)}</b></span><span>Heading <b>{hd.toFixed(0)}°</b></span>
-        <span>Elevation <b>{st.el[i].toFixed(0)} m</b></span><span>Upcoming slope <b>{st.sl[Math.min(i + 3, st.sl.length - 1)].toFixed(1)}°</b></span>
-        <span>Oxygen left <b>{fmtDuration(Math.max(0, s.oxy * 60 - st.t * (st.cum[i] / st.d)))}</b></span>
+      <div className="hh"><b>Navigation</b><span className="p w">Simulation</span></div>
+      <div className="hp" title={`${Math.round((st.cum[i] / st.d) * 100)}% of the route walked`}><i style={{ width: `${Math.min(100, (st.cum[i] / st.d) * 100)}%` }} /></div>
+      <div className="hs">
+        <div><small>Segment</small><b>{sg.n}</b></div>
+        <div><small>Remaining</small><b>{rem.toFixed(2)} km</b></div>
+        <div><small>Time left</small><b>{fmtDuration((rem / 2) * 60)}</b></div>
+        <div><small>Oxygen left</small><b>{fmtDuration(Math.max(0, s.oxy * 60 - st.t * (st.cum[i] / st.d)))}</b></div>
+        <div><small>Heading</small><b>{hd.toFixed(0)}°</b></div>
+        <div><small>Upcoming slope</small><b>{st.sl[Math.min(i + 3, st.sl.length - 1)].toFixed(1)}°</b></div>
       </div>
-      {s.guideText && <div className="guide"><small>Routing service</small>{s.guideText}</div>}
-      <div style={{ margin: '4px 0' }}><b>{done ? 'Arrived at end of route.' : `Travel ${((st.cum[j] - st.cum[i]) * 1000).toFixed(0)} m at heading ${hd.toFixed(0)}°`}</b></div>
+      <p className="hg">{done ? 'You have reached the end of the route.' : s.guideText || `Travel ${((st.cum[j] - st.cum[i]) * 1000).toFixed(0)} m at heading ${hd.toFixed(0)}°.`}</p>
       <div className="hudbtns">
-        <button onClick={s.navPause}>{n.paused ? 'Resume' : 'Pause'}</button>
+        <button className="hpri" onClick={s.navPause}>{n.paused ? '▶ Resume' : '❚❚ Pause'}</button>
         <button onClick={() => s.navAdvance(5)}>Advance</button>
         <button onClick={() => s.setPick('cur')}>Set position</button>
-        <button onClick={() => s.setPick('obs')}>Report obstacle</button>
-        <button onClick={s.navEnd}>End</button>
+        <button className="hobs" onClick={() => s.setPick('obs')}>⚠ Report obstacle</button>
+        <button className="hend" onClick={s.navEnd}>End</button>
       </div>
     </div>
   );

@@ -495,10 +495,11 @@ export const useStore = create<Store>((set, get) => {
       if (!combined(get())) return;
       window.clearInterval(navTimer);
       set({ nav: { i: 0, paused: false } });
+      const stepMs = Math.min(6000, Math.max(700, 90000 / Math.max(1, (combined(get())?.s.p.length ?? 60))));   // about a minute and a half end to end
       navTimer = window.setInterval(() => {
         const n = get().nav;
         if (n && !n.paused) get().navAdvance(1);
-      }, 800);
+      }, stepMs);
     },
     navPause: () => set((s) => (s.nav ? { nav: { ...s.nav, paused: !s.nav.paused } } : {})),
     navAdvance: (steps = 5) => {
