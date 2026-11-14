@@ -55,7 +55,7 @@ function AnalyzeSummary() {
 
 function RouteCards() {
   const s = useStore();
-  const { routes, sel, preset, res, oxy, region, base, selectRoute } = s;
+  const { routes, sel, preset, res, oxy, region, base, selectRoute, routeNotes } = s;
   return (
     <>
       <h2>Route comparison</h2>
@@ -68,7 +68,7 @@ function RouteCards() {
               <span>Time out <b>{fmtDuration(o.t)}</b></span><span>Max slope <b>{o.mx.toFixed(1)}°</b></span>
               <span>Avg slope <b>{o.av.toFixed(1)}°</b></span><span>Up/down <b>{o.up.toFixed(0)}/{o.dn.toFixed(0)} m</b></span>
               <span>Hazard share <b>{((o.over.length / o.p.length) * 100).toFixed(0)}%</b></span>
-              <span>Coarse data <b>{(coarseShare(o, region, base) * 100).toFixed(0)}%</b></span>
+              <span>Coarse data <b>{r.src ? '100% (463 m cells)' : `${(coarseShare(o, region, base) * 100).toFixed(0)}%`}</b></span>
               <span>Roughness <b>n/a</b></span><span>Feasible <b>{t + s.res <= oxy * 60 ? 'yes' : 'no'}</b></span>
             </div>
             <p>{r.k === 'short' ? 'Most direct; may cross steeper ground.' : r.k === 'safe' ? 'Longer with lower measured slopes. Not guaranteed safe.' : 'Trade-off between distance and slope.'}</p>
@@ -76,6 +76,7 @@ function RouteCards() {
           </div>
         );
       }) : <p className="nt">No routes yet. Set Start and Destination, then press Generate Routes.</p>}
+      {routes.length > 0 && routeNotes.length > 0 && <div className="rnotes">{routeNotes.map((n, i) => <p key={i} className="nt">{n}</p>)}</div>}
       <span hidden>{res}</span>
     </>
   );
@@ -100,7 +101,7 @@ function MissionSummary() {
             <BudgetBar b={b} />
             <p>Score is a ranking value, not a probability.</p>
           </div>
-          {m.ex.length > 0 && <p className="nt"><b>Excluded:</b> {m.ex.map((e) => `${e.t.id} (${e.r})`).join('; ')}</p>}
+          {m.ex.length > 0 && <p className="nt"><b>Excluded:</b> {m.ex.map((e) => `${e.t.label ?? e.t.id} (${e.r})`).join('; ')}</p>}
         </>
       )}
     </>
@@ -164,7 +165,7 @@ export default function ResultsPanel() {
                   <i>→</i>
                   <div>{x.n}<span>{x.s.d.toFixed(1)} km · {fmtDuration(x.s.t)} · computed{x.s.over.length ? <> · <b className="wn">{x.s.over.length} steep samples</b></> : null}</span></div>
                 </div>
-                {x.t && <div className="st" onClick={() => s.gotoStep(i)}><i>◆</i><div>Examine {x.t.id}<span>{s.exam} min · {s.obj} · assumption</span></div></div>}
+                {x.t && <div className="st" onClick={() => s.gotoStep(i)}><i>◆</i><div>Examine {x.t.label ?? x.t.id}<span>{s.exam} min · {s.obj} · assumption</span></div></div>}
               </div>
             ))}
             <p className="nt">Steps are planned actions; distances come from the mock route model.</p>

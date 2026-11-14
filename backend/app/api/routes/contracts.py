@@ -3,9 +3,8 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, status
 from app.schemas import (
     CreateMissionRequest, DatasetCategory, DatasetRecord, DatasetRefreshJob,
-    FreshnessState, Mission, NavigationGuideRequest, NavigationInstruction,
+    FreshnessState, Mission,
     OfflinePackageRequest, OfflinePackageStatus,
-    ReplanRequest, RouteRequest, RouteResult,
 )
 
 router = APIRouter()
@@ -32,9 +31,4 @@ def refresh_dataset(dataset_id: UUID) -> DatasetRefreshJob: pending()
 def get_offline_package(mission_id: UUID) -> OfflinePackageStatus: pending()
 @router.post("/missions/{mission_id}/offline-package", response_model=OfflinePackageStatus, status_code=status.HTTP_202_ACCEPTED)
 def prepare_offline_package(mission_id: UUID, _: OfflinePackageRequest) -> OfflinePackageStatus: pending()
-@router.post("/routes", response_model=RouteResult)
-def create_route(_: RouteRequest) -> RouteResult: pending()
-@router.post("/routes/{route_id}/replan", response_model=RouteResult)
-def replan_route(route_id: UUID, _: ReplanRequest) -> RouteResult: pending()
-@router.post("/navigation/guide", response_model=NavigationInstruction)
-def navigation_guide(_: NavigationGuideRequest) -> NavigationInstruction: pending()
+# Routing endpoints (/routes, /routes/{id}/replan, /navigation/guide) are implemented in routes/routing.py.

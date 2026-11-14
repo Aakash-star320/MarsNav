@@ -15,7 +15,8 @@ export interface Stats {
 }
 export interface Target { id: string; cat: string; x: number; y: number; score: number; conf: string; label?: string; evidence?: string[]; rank?: string }
 export interface Dest extends Pt { id?: string }
-export interface Route { k: Preset; n: string; c: string; out: Stats; ret: Stats | null; bend: number }
+/** `src` is set for routes that came from the routing service: the route's own id, the id to replan through, and the request version. */
+export interface Route { k: Preset; n: string; c: string; out: Stats; ret: Stats | null; bend: number; src?: { id: string; replanId: string; version: string } }
 export interface MissionLeg { t: Target; s: Stats }
 export interface Mission {
   feasible: boolean; msg?: string; legs: MissionLeg[]; ret?: Stats;
@@ -26,7 +27,7 @@ export interface Job { title: string; stages: string[]; i: number; real?: boolea
 export interface RealLayer { href: string; bounds: BoundingBox }
 /** A finished analysis from the backend: images placed by geographic bounds, and real statistics. */
 export interface RealAnalysis {
-  id: string; hazardBase: string;
+  id: string; missionId?: string; hazardBase: string;
   layers: { elevation: RealLayer; slope: RealLayer; roughness?: RealLayer; science?: RealLayer };
   stats: RegionStatistics; warnings: string[]; notes: string[];
 }
@@ -58,6 +59,6 @@ export interface DataState {
   tab: Tab; focus: Pt | null; online: boolean; cache: boolean;
   job: Job | null; err: string; stale: boolean; selT: string | null;
   pk: Pkg[]; pan: Record<PanelKey, boolean>; bh: number; adv: boolean; lyOpen: boolean;
-  real: RealAnalysis | null; layers: Record<string, LayerState>; chat: ChatMsg[]; aiOpen: boolean; aiDraft: string; aiBar: string | null; focusZoom: number | null;
+  real: RealAnalysis | null; layers: Record<string, LayerState>; chat: ChatMsg[]; aiOpen: boolean; aiDraft: string; aiBar: string | null; focusZoom: number | null; routeSource: 'simulated' | 'real'; missionSource: 'simulated' | 'real'; routeNotes: string[]; guideText: string | null;
   assistantMode: 'gemma' | 'rule_based' | null; assistantModel: string | null; pendingQ: string | null;
 }

@@ -34,11 +34,13 @@ function Banner() {
 }
 
 function Legend() {
-  const { layers, slope, real } = useStore();
+  const { layers, slope, real, routeSource, routes, mode, missionSource, mission } = useStore();
+  const realRoutes = routeSource === 'real' && routes.length > 0 && mode === 'route';
+  const realMission = missionSource === 'real' && !!mission && mode === 'mission';
   const items = LAYERS.filter((l) => layers[l.id].on).map((l) => (l.id === 'haz' ? `Red cells: slope > ${slope}°` : (real && REAL_LEGEND[l.id]) || LEGEND[l.id])).filter(Boolean);
   return (
     <div className="ov" id="lg"><b>Legend</b> {items.join(' · ') || 'No layers on'}<br />
-      <span style={{ color: '#f0b254' }}>{real ? 'Elevation, slope, steep-terrain and spectral layers are real analysis (463 m terrain). Routes and missions are simulated.' : 'Routes, targets and terrain layers are simulated.'}</span><br />
+      <span style={{ color: '#f0b254' }}>{real ? `Elevation, slope, steep-terrain and spectral layers are real analysis (463 m terrain). ${realMission ? 'The mission follows that real terrain; routes are simulated.' : realRoutes ? 'Routes follow that real terrain; missions are simulated.' : 'Routes and missions are simulated.'}` : 'Routes, targets and terrain layers are simulated.'}</span><br />
       <span style={{ color: '#b4c1d8' }}>Solid = outbound · dashed = return · ◆ target · dotted = previous</span>
     </div>
   );
@@ -64,7 +66,12 @@ function JobOverlay() {
 
 function NavHud() {
   const s = useStore();
-  const c = combined(s), n = s.nav;
+  const c = combined(s), n = s.nav, refreshGuide = s.refreshGuide;
+  useEffect(() => {
+    if (!n || !c) return;
+    const p = c.s.p, i = Math.min(n.i, p.length - 1), b = p[Math.min(p.length - 1, i + 8)], a = p[i];
+    refreshGuide({ x: a.x, y: a.y }, ((Math.atan2(b.x - a.x, -(b.y - a.y)) * 57.3) + 360) % 360);
+  }, [n?.i, s.sel, s.routes]);
   if (!n || !c) return null;
   const st = c.s, i = Math.min(n.i, st.p.length - 1), j = Math.min(st.p.length - 1, i + 8), a = st.p[i], b = st.p[j];
   const hd = ((Math.atan2(b.x - a.x, -(b.y - a.y)) * 57.3) + 360) % 360, rem = st.d - st.cum[i];
@@ -78,6 +85,7 @@ function NavHud() {
         <span>Elevation <b>{st.el[i].toFixed(0)} m</b></span><span>Upcoming slope <b>{st.sl[Math.min(i + 3, st.sl.length - 1)].toFixed(1)}°</b></span>
         <span>Oxygen left <b>{fmtDuration(Math.max(0, s.oxy * 60 - st.t * (st.cum[i] / st.d)))}</b></span>
       </div>
+      {s.guideText && <div className="guide"><small>Routing service</small>{s.guideText}</div>}
       <div style={{ margin: '4px 0' }}><b>{done ? 'Arrived at end of route.' : `Travel ${((st.cum[j] - st.cum[i]) * 1000).toFixed(0)} m at heading ${hd.toFixed(0)}°`}</b></div>
       <div className="hudbtns">
         <button onClick={s.navPause}>{n.paused ? 'Resume' : 'Pause'}</button>

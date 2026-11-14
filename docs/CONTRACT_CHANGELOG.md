@@ -1,5 +1,17 @@
 # Contract change log
 
+## 0.2.10 draft — mission plans
+
+Additive. New `POST /mission-plans` and `GET /mission-plans/{id}` (models in `app/schemas/mission_plan.py`, TypeScript in `frontend/src/types/missionPlan.ts`). A plan picks science targets of a finished analysis greedily by relevance per minute inside the oxygen budget (reserve and the way back to the base included), plans each leg with the routing engine, and lists targets it left out with a reason. Targets only ever come from the analysis. Plans are held in memory.
+
+## 0.2.9 draft — route waypoints and base
+
+Additive. `RouteRequest` gains optional `waypoints` (up to 10 stops between start and destination, visited in the order given, before any required targets) and optional `base` (where a return trip ends; the start point when omitted). `RouteResult.waypoints` lists the waypoints followed by the required targets. Unknown cells outside the analysed area give the conflicts `waypoint_outside_grid` and `base_outside_grid`. TypeScript mirror updated together.
+
+## 0.2.8 draft — routing API
+
+Additive. `RouteAlternative` gains `elevation_profile` and its `id` is a route that can be read, replanned and followed like the main route. `POST /routes`, `GET /routes/{id}`, `POST /routes/{id}/replan` and `POST /navigation/guide` are implemented (the 501 placeholders are removed). `POST /routes` returns the requested preset as the route and the other comparison presets as `alternatives`; presets that give the identical route are not repeated and a warning says so. Blocked areas are honoured when planning and replanning. Routes are held in memory, so a route id is unknown after a restart. TypeScript mirror updated together.
+
 ## 0.2.7 draft — hosted-model assistant
 
 Additive. `AssistantRequest` gains optional `analysis_id` (the analysis the user is looking at) and `selected_area` (the area selected in the UI) so the assistant answers about what is on screen. New `GET /assistant/status` returns `{mode: "gemma" | "rule_based", model}`. `POST /assistant/messages` uses a hosted Gemma model when `GEMMA_MODEL` and `GEMMA_API_KEY` are set and falls back to the rule-based assistant, with a warning, when the model is unavailable. The tool allowlist is unchanged; the model is offered only the read-only tools. TypeScript mirror updated together.

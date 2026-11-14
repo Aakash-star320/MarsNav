@@ -68,6 +68,16 @@ curl -X POST localhost:8000/api/v1/analyses/{id}/cancel
 
 Jobs run one at a time on a worker thread. Equivalent requests share a job, results survive a restart, and a job interrupted by a restart is recorded as failed (`interrupted`). Terrain access for routing is documented in [`../docs/TERRAIN_CONTRACT.md`](../docs/TERRAIN_CONTRACT.md).
 
+## Routing
+
+`POST /routes` plans on a finished analysis (the terrain bundle) with the deterministic A* engine in `app/routing/`: hard limits (slope, distance, duration, elevation gain, reserve, return to the start), blocked areas, and an unknown-terrain policy. It returns a `RouteResult` with geometry, segments, elevation profile and provenance, plus the other comparison presets (shortest / safest / balanced) as `alternatives`; presets that give the identical route are not repeated. `POST /routes/{id}/replan` adds blocked areas, `GET /routes/{id}` reads a route, `POST /navigation/guide` gives the next move from a position and heading.
+
+The request may carry up to ten `waypoints` (visited in order, before any required science targets) and a `base` where a return trip ends (the start point when omitted).
+
+`POST /mission-plans` plans a science mission on a finished analysis: it picks the analysis' science targets with the best relevance per minute that still fit the oxygen budget (reserve and the way back to the base included), plans every leg with the same engine, and reports the targets it left out and why. Targets only come from the analysis, never invented.
+
+Limits: routes are planned on the 463 m terrain, so they are broad planning paths, not paths around rocks or small craters; routes are kept in memory (an id is unknown after a restart).
+
 ## Tests and benchmarks
 
 ```bash

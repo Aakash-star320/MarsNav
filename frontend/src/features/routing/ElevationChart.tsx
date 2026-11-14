@@ -36,7 +36,7 @@ export default function ElevationChart({ mode }: { mode: 'elev' | 'slope' }) {
         <path d={path} fill="none" stroke="#2dd4d0" strokeWidth={2} />
         {sl && [s.slope, -s.slope].map((q) => <line key={q} x1={55} x2={W - 20} y1={Y(q)} y2={Y(q)} stroke="#e5645f" strokeDasharray="4 3" />)}
         {c.b.slice(1).map((i) => <line key={i} x1={X(i)} x2={X(i)} y1={8} y2={H - 18} stroke="#b4c1d8" strokeDasharray="2 3" />)}
-        {c.sg.map((x, i) => x.t && <text key={i} x={X(c.b[i] + x.s.p.length - 1) - 8} y={20} fill="#e8aa3c" fontSize={11}>◆{x.t.id}</text>)}
+        {c.sg.map((x, i) => x.t && <text key={i} x={X(c.b[i] + x.s.p.length - 1) - 8} y={20} fill="#e8aa3c" fontSize={11}>◆{x.t.label ?? x.t.id}</text>)}
         <line x1={55} x2={55} y1={8} y2={H - 18} stroke="#2a3a57" /><line x1={55} x2={W - 20} y1={H - 18} y2={H - 18} stroke="#2a3a57" />
         <text x={2} y={16} fill="#b4c1d8" fontSize={11}>{mx.toFixed(0)}{unit}</text>
         <text x={2} y={H - 20} fill="#b4c1d8" fontSize={11}>{mn.toFixed(0)}{unit}</text>

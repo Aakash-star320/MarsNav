@@ -7,7 +7,7 @@ import { useMissionStore } from '../store/missionStore';
 export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undefined) ?? 'http://localhost:8000/api/v1';
 
 export type AnalysisJob = {
-  id: string; stage: string; progress_percent: number; message: string; warnings: string[]; error_code?: string | null;
+  id: string; mission_id?: string; stage: string; progress_percent: number; message: string; warnings: string[]; error_code?: string | null;
 };
 /** Descriptive statistics over valid cells (mirrors backend RegionStatistics). Not a safety assessment. */
 export type RegionStatistics = {

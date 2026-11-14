@@ -341,6 +341,8 @@ class RouteRequest(BaseModel):
     analysis_version: str
     start: LonLat
     destination: LonLat
+    waypoints: list[LonLat] = Field(default_factory=list, max_length=10)   # stops between start and destination, visited in order, before any required targets
+    base: LonLat | None = None                                             # where a return trip ends; the start point when omitted
     preset: RoutePreset | None = None
     preferences: WeightPreferences = Field(default_factory=WeightPreferences)
     constraints: MissionConstraints = Field(default_factory=MissionConstraints)
@@ -388,6 +390,7 @@ class RouteAlternative(BaseModel):
     label: str
     geometry: list[LonLat] = Field(default_factory=list)
     metrics: RouteMetrics | None = None
+    elevation_profile: list[ElevationProfilePoint] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 
