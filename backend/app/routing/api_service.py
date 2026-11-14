@@ -63,6 +63,8 @@ CONFLICT_TEXT = {
     "mission_id_mismatch": "The analysis belongs to a different mission.",
     "required_target_unavailable": "A required science target is not part of this analysis.",
     "required_target_outside_grid": "A required science target is outside the analysed area.",
+    "waypoint_outside_grid": "A waypoint is outside the analysed area.",
+    "base_outside_grid": "The base is outside the analysed area.",
     "duplicate_required_target_id": "A required science target was listed twice.",
     "max_target_count_exceeded": "More required targets were listed than the maximum target count.",
     "diagonal_corner_constraints_or_search_conflict": "The only way through needs a diagonal squeeze between blocked cells.",
@@ -271,12 +273,13 @@ def _stop_indices(cells: list[Cell], waypoint_cells: list[Cell], routing: Routin
     marks: list[tuple[int, UUID | None]] = [(0, None)]
     cursor = 0
     ids = list(request.constraints.required_target_ids)
+    free = len(waypoint_cells) - len(ids)                      # the request's own waypoints come first, then the required targets
     for k, w in enumerate(waypoint_cells):
         try:
             cursor = cells.index(w, cursor)
         except ValueError:
             continue
-        marks.append((cursor, ids[k] if k < len(ids) else None))
+        marks.append((cursor, ids[k - free] if k >= free else None))
     goal = routing.lonlat_to_cell(request.destination)
     if goal is not None and goal in cells[cursor:]:
         cursor = cells.index(goal, cursor)

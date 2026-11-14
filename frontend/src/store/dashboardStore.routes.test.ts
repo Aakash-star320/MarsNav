@@ -69,7 +69,7 @@ describe('real routes from the routing service', () => {
   });
 
   it('builds the request from the dashboard state: lon/lat points, limits in metres, obstacles as blocked boxes, no unsupported weights', () => {
-    const req = buildRouteRequest({ missionId: 'm1', analysisId: 'a1', start: { x: 100, y: 100 }, dest: { x: 300, y: 200 }, preset: 'safe', slope: 20, ret: true, maxKm: 50, oxyH: 4, reserveMin: 30, examMin: 20, speedMPerMin: 33.3, obs: [{ x: 200, y: 150, r: 35 }] });
+    const req = buildRouteRequest({ missionId: 'm1', analysisId: 'a1', start: { x: 100, y: 100 }, dest: { x: 300, y: 200 }, wps: [], base: { x: 120, y: 360 }, preset: 'safe', slope: 20, ret: true, maxKm: 50, oxyH: 4, reserveMin: 30, examMin: 20, speedMPerMin: 33.3, obs: [{ x: 200, y: 150, r: 35 }] });
     expect(req).toMatchObject({ mission_id: 'm1', analysis_id: 'a1', analysis_version: 'analysis/1', preset: 'safest' });
     expect(req.start.longitude_deg_east).toBeCloseTo(ll(100, 100).longitude_deg_east, 9);
     expect(req.constraints).toMatchObject({ max_slope_deg: 20, max_distance_m: 50000, max_duration_min: 210, return_to_base: true, unknown_terrain_policy: 'exclude' });
@@ -78,6 +78,8 @@ describe('real routes from the routing service', () => {
     expect(b.east_deg_east).toBeGreaterThan(b.west_deg_east);
     expect(b.north_deg).toBeGreaterThan(b.south_deg);
     expect(req.blocked_areas).toHaveLength(1);
+    expect(req.waypoints).toEqual([]);
+    expect(req.base?.longitude_deg_east).toBeCloseTo(ll(120, 360).longitude_deg_east, 9);
   });
 
   it('Generate Routes calls the routing service when an analysis exists, and labels the routes as real', async () => {
@@ -113,9 +115,38 @@ describe('real routes from the routing service', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
-  it('waypoints are not part of the routing contract, so those routes stay on the simulated planner', () => {
+  it('waypoints and the base are sent to the routing service, so those routes are real too', async () => {
+    let body: Record<string, any> = {};
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      if (String(input).endsWith('/routes')) { body = JSON.parse(String(init?.body)); return reply(result()); }
+      return reply({});
+    });
+    useStore.setState({ wps: [{ x: 150, y: 120 }, { x: 250, y: 160 }], ret: true, base: { x: 120, y: 110 } });
+    useStore.getState().generate();
+    await vi.waitFor(() => expect(useStore.getState().routes.length).toBeGreaterThan(0));
+    expect(body.waypoints).toHaveLength(2);
+    expect(body.waypoints[0].longitude_deg_east).toBeCloseTo(ll(150, 120).longitude_deg_east, 9);
+    expect(body.base.latitude_deg).toBeCloseTo(ll(120, 110).latitude_deg, 9);
+    expect(body.constraints.return_to_base).toBe(true);
+    expect(useStore.getState().routeSource).toBe('real');
+    expect(useStore.getState().routeNotes.join(' ')).not.toMatch(/start point/);        // the return now ends at the Base
+  });
+
+  it('no base is sent without a return trip, and waypoints or a base outside the analysed area are refused', () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    expect(buildRouteRequest({ missionId: 'm1', analysisId: 'a1', start: { x: 1, y: 1 }, dest: { x: 2, y: 2 }, wps: [], base: { x: 5, y: 5 }, preset: 'bal', slope: 20, ret: false, maxKm: 50, oxyH: 4, reserveMin: 30, examMin: 0, speedMPerMin: 33, obs: [] }).base).toBeUndefined();
+    useStore.setState({ real: { ...(REAL as object), layers: { elevation: { href: '', bounds: { ...BOUNDS, east_deg_east: pxToLonLat({ x: 400, y: 0 }).longitude_deg_east } }, slope: { href: '', bounds: BOUNDS } } } as never, wps: [{ x: 600, y: 120 }] });
+    useStore.getState().generate();
+    expect(useStore.getState().err).toMatch(/waypoint must be inside the analysed area/);
+    useStore.setState({ wps: [], ret: true, base: { x: 700, y: 400 }, err: '' });
+    useStore.getState().generate();
+    expect(useStore.getState().err).toMatch(/Base must be inside the analysed area/);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('more waypoints than the contract allows stay on the simulated planner', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(() => reply({}));
-    useStore.setState({ wps: [{ x: 200, y: 150 }] });
+    useStore.setState({ wps: Array.from({ length: 11 }, (_, k) => ({ x: 120 + k * 10, y: 120 })) });
     useStore.getState().generate();
     expect(fetchSpy.mock.calls.every(([u]) => !String(u).includes('/routes'))).toBe(true);
     expect(useStore.getState().routeSource).not.toBe('real');

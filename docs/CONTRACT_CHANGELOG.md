@@ -1,5 +1,9 @@
 # Contract change log
 
+## 0.2.9 draft — route waypoints and base
+
+Additive. `RouteRequest` gains optional `waypoints` (up to 10 stops between start and destination, visited in the order given, before any required targets) and optional `base` (where a return trip ends; the start point when omitted). `RouteResult.waypoints` lists the waypoints followed by the required targets. Unknown cells outside the analysed area give the conflicts `waypoint_outside_grid` and `base_outside_grid`. TypeScript mirror updated together.
+
 ## 0.2.8 draft — routing API
 
 Additive. `RouteAlternative` gains `elevation_profile` and its `id` is a route that can be read, replanned and followed like the main route. `POST /routes`, `GET /routes/{id}`, `POST /routes/{id}/replan` and `POST /navigation/guide` are implemented (the 501 placeholders are removed). `POST /routes` returns the requested preset as the route and the other comparison presets as `alternatives`; presets that give the identical route are not repeated and a warning says so. Blocked areas are honoured when planning and replanning. Routes are held in memory, so a route id is unknown after a restart. TypeScript mirror updated together.

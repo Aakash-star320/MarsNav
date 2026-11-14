@@ -102,6 +102,51 @@ def test_rough_ground_changes_the_route_and_alternatives_are_distinct(api) -> No
     assert guide(svc, svc.get(alt.id), alt.geometry[0], 0.0).remaining_distance_m == pytest.approx(alt.metrics.distance_m)
 
 
+# -- waypoints and the base point -----------------------------------------------------------------------
+def test_waypoints_are_visited_in_order_and_become_segments(api) -> None:
+    svc, _, routing, request = api
+    direct = svc.plan(request(return_to_base=False))
+    first, second = routing.cell_center_lonlat(1, 4), routing.cell_center_lonlat(4, 1)
+    res = svc.plan(request(return_to_base=False).model_copy(update={"waypoints": [first, second]}))
+    assert res.feasible
+    cells = [cell_of(routing, p) for p in res.geometry]
+    assert cells.index((1, 4)) < cells.index((4, 1)) and cells[-1] == (4, 4)                 # in the order given, then the destination
+    assert res.metrics.distance_m > direct.metrics.distance_m
+    assert len(res.segments) == 3 and res.segments[0].to_location == res.waypoints[0] and len(res.waypoints) == 2
+    assert all(s.target_id is None for s in res.segments)                                    # waypoints are not science targets
+
+
+def test_a_waypoint_outside_the_analysed_area_is_reported(api) -> None:
+    svc, _, _, request = api
+    res = svc.plan(request(return_to_base=False).model_copy(update={"waypoints": [LonLat(latitude_deg=80, longitude_deg_east=80)]}))
+    assert not res.feasible and "waypoint_outside_grid" in res.constraint_conflicts
+    assert any("waypoint is outside" in d.message for d in res.conflict_details)
+
+
+def test_the_return_trip_ends_at_the_base_not_the_start(api) -> None:
+    svc, _, routing, request = api
+    base = routing.cell_center_lonlat(4, 1)
+    res = svc.plan(request(return_to_base=True).model_copy(update={"base": base}))
+    assert res.feasible and cell_of(routing, res.geometry[0]) == (1, 1) and cell_of(routing, res.geometry[-1]) == (4, 1)
+    assert res.segments[-1].to_location == res.geometry[-1]
+    back_to_start = svc.plan(request(return_to_base=True))                                   # no base given: the old behaviour, back to the start
+    assert cell_of(routing, back_to_start.geometry[-1]) == (1, 1)
+
+
+def test_a_base_outside_the_analysed_area_is_reported(api) -> None:
+    svc, _, _, request = api
+    res = svc.plan(request(return_to_base=True).model_copy(update={"base": LonLat(latitude_deg=80, longitude_deg_east=80)}))
+    assert not res.feasible and "base_outside_grid" in res.constraint_conflicts
+
+
+def test_waypoints_and_base_are_part_of_the_request_version(api) -> None:
+    _, _, routing, request = api
+    plain = request(return_to_base=True)
+    with_wp = plain.model_copy(update={"waypoints": [routing.cell_center_lonlat(1, 4)]})
+    with_base = plain.model_copy(update={"base": routing.cell_center_lonlat(4, 1)})
+    assert len({request_version(plain), request_version(with_wp), request_version(with_base)}) == 3
+
+
 # -- blocked areas and replanning ----------------------------------------------------------------------
 def test_blocked_area_boxes_become_blocked_cells(api) -> None:
     _, _, routing, _ = api

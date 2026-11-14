@@ -37,7 +37,7 @@ const ORDER: Preset[] = ['short', 'safe', 'bal'];
 const NAME: Record<Preset, string> = { short: 'Shortest', safe: 'Safest terrain', bal: 'Balanced' };
 
 export interface RouteInputs {
-  missionId: string; analysisId: string; start: Pt; dest: Pt; preset: Preset; slope: number; ret: boolean;
+  missionId: string; analysisId: string; start: Pt; dest: Pt; wps: Pt[]; base: Pt; preset: Preset; slope: number; ret: boolean;
   maxKm: number; oxyH: number; reserveMin: number; examMin: number; speedMPerMin: number; obs: Obstacle[];
 }
 
@@ -48,11 +48,14 @@ export function obstacleToBlockedArea(o: Obstacle): BlockedArea {
 }
 
 export function buildRouteRequest(a: RouteInputs): RouteRequest {
+  const point = (p: Pt): LonLat => { const c = pxToLonLat(p); return { latitude_deg: c.latitude_deg, longitude_deg_east: c.longitude_deg_east }; };
   const s = pxToLonLat(a.start), d = pxToLonLat(a.dest);
   return {
     mission_id: a.missionId, analysis_id: a.analysisId, analysis_version: ANALYSIS_VERSION,
     start: { latitude_deg: s.latitude_deg, longitude_deg_east: s.longitude_deg_east },
     destination: { latitude_deg: d.latitude_deg, longitude_deg_east: d.longitude_deg_east },
+    waypoints: a.wps.map(point),                      // visited in the order given (the contract allows ten)
+    ...(a.ret ? { base: point(a.base) } : {}),        // where the return trip ends
     preset: PRESET[a.preset],
     // science and confidence rasters do not exist yet, so those weights are left at zero instead of being silently ignored
     preferences: { distance: 1, slope: 2, roughness: 2, elevation_gain: 1, hazard: 3, science: 0, confidence: 0 },

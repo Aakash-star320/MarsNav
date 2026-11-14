@@ -223,7 +223,7 @@ export const useStore = create<Store>((set, get) => {
     const token = ++routeToken;
     const alive = () => token === routeToken;
     set({ job: { title: 'Generate Routes', stages: ['Plan on the real terrain', 'Compare routes', 'Done'], i: 0, real: true }, err: '' });
-    const inputs = { missionId: real.missionId, analysisId: real.id, start: from, dest, preset: s.preset, slope: s.slope, ret: s.ret, maxKm: s.maxd, oxyH: s.oxy,
+    const inputs = { missionId: real.missionId, analysisId: real.id, start: from, dest, wps: s.wps, base: s.base, preset: s.preset, slope: s.slope, ret: s.ret, maxKm: s.maxd, oxyH: s.oxy,
                      reserveMin: s.res, examMin: s.exam, speedMPerMin: (WALK_KMH * 1000) / 60, obs: s.obs };
     try {
       const cur = s.routes[s.sel]?.src, added = s.obs.slice(routeBasis?.obs ?? 0).map(obstacleToBlockedArea);
@@ -241,7 +241,7 @@ export const useStore = create<Store>((set, get) => {
         return;
       }
       routeBasis = { preset: s.preset, start: from, obs: s.obs.length };
-      const notes = s.ret ? [...res.warnings, 'The return leg goes back to the start point.'] : res.warnings;
+      const notes = res.warnings;
       set({ job: null, routes, prev, sel: Math.max(0, routes.findIndex((r) => r.k === s.preset)), err: '', routeSource: 'real', routeNotes: notes, guideText: null });
       openPanels(true, true);
     } catch (e) {
@@ -250,8 +250,17 @@ export const useStore = create<Store>((set, get) => {
     }
   };
 
-  /** True when routes should come from the routing service: an analysis exists and there are no waypoints (the contract has none). */
-  const realRoutesFor = (s: DataState) => !!s.real && s.wps.length === 0;
+  /** True when routes should come from the routing service: an analysis exists and the stops fit the contract (ten waypoints at most). */
+  const realRoutesFor = (s: DataState) => !!s.real && s.wps.length <= 10;
+  /** Why a set of points cannot be sent to the routing service, or null when all of them lie inside the analysed area. */
+  const outsideAnalysis = (s: DataState, from: Pt): string | null => {
+    if (!s.real || !s.dest) return null;
+    const area = analysedRect(s.real);
+    if (!insideRect(from, area) || !insideRect(s.dest, area)) return 'Start and Destination must both be inside the analysed area (the teal box): real routes only exist on terrain that has been analysed. Move them, or analyze a larger area.';
+    if (s.wps.some((w) => !insideRect(w, area))) return 'Every waypoint must be inside the analysed area (the teal box). Move or clear the waypoints outside it.';
+    if (s.ret && !insideRect(s.base, area)) return 'The Base must be inside the analysed area (the teal box) for a return trip. Move the Base, or turn off Return to base.';
+    return null;
+  };
 
   const applyMission = (from: Pt) => {
     const s = get();
@@ -301,11 +310,8 @@ export const useStore = create<Store>((set, get) => {
       if (!s.start || !s.dest) { set({ err: 'Set both a Start and a Destination first. Use Set on map, or choose a science target.' }); return; }
       if (realRoutesFor(s) && s.real) {
         if (!s.online) { set({ err: 'You are offline. Real routes come from the routing service and need the backend.' }); return; }
-        const area = analysedRect(s.real);
-        if (!insideRect(s.start, area) || !insideRect(s.dest, area)) {
-          set({ err: 'Start and Destination must both be inside the analysed area (the teal box): real routes only exist on terrain that has been analysed. Move them, or analyze a larger area.' });
-          return;
-        }
+        const why = outsideAnalysis(s, s.start);
+        if (why) { set({ err: why }); return; }
         void runRealRoutes(s.start);
         return;
       }
@@ -404,8 +410,8 @@ export const useStore = create<Store>((set, get) => {
       if (s.mode === 'mission') applyMission(s.nav && from ? from : s.base);
       else if (s.dest && from) {
         if (realRoutesFor(s) && s.real) {
-          const area = analysedRect(s.real);
-          if (!insideRect(from, area) || !insideRect(s.dest, area)) { set({ err: 'The start or destination is outside the analysed area, so the routing service cannot replan.' }); return; }
+          const why = outsideAnalysis(s, from);
+          if (why) { set({ err: why }); return; }
           void runRealRoutes(from);
         } else applyRoutes(from);
       }

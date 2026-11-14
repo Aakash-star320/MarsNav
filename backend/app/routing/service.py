@@ -92,6 +92,17 @@ def plan_route(request: ApiRouteRequest, analysis_service: AnalysisProvider, blo
     missing = tuple(target_id for target_id in requested_ids if target_id not in targets_by_id)
     if missing:
         return _failure(request, tuple("required_target_unavailable" for _ in missing), tuple(warnings))
+    free_cells: list[Cell] = []
+    for waypoint in request.waypoints:
+        cell = routing.lonlat_to_cell(waypoint)
+        if cell is None:
+            return _failure(request, ("waypoint_outside_grid",), tuple(warnings))
+        free_cells.append(cell)
+    base_cell = start
+    if request.base is not None:
+        base_cell = routing.lonlat_to_cell(request.base)
+        if base_cell is None:
+            return _failure(request, ("base_outside_grid",), tuple(warnings))
     target_cells: list[Cell] = []
     for target_id in requested_ids:
         cell = routing.lonlat_to_cell(targets_by_id[target_id].location)
@@ -104,8 +115,9 @@ def plan_route(request: ApiRouteRequest, analysis_service: AnalysisProvider, blo
     if requested_ids:
         warnings.append("Required targets are visited in request order; multi-target ordering is not optimized.")
 
+    stops = tuple(free_cells) + tuple(target_cells)                      # own waypoints first, then the required targets
     adapted: AdaptedRouteRequest = adapt_route_request(request, start=start, goal=goal,
-        base=start, waypoints=tuple(target_cells), target_count=len(requested_ids))
+        base=base_cell, waypoints=stops, target_count=len(requested_ids))
     warnings.extend(adapted.capability_warnings)
     costs: CostModel = build_cost_model(adapted_grid.terrain_model, adapted.preferences, adapted.limits)
     engine_request = replace(adapted.request, blocked_cells=frozenset(blocked_cells)) if blocked_cells else adapted.request
@@ -127,7 +139,7 @@ def plan_route(request: ApiRouteRequest, analysis_service: AnalysisProvider, blo
     return RoutePlanningResult(
         feasible=feasible,
         route_cells=outcome.path_cells if feasible else (),
-        waypoint_cells=tuple(target_cells) if feasible else (),
+        waypoint_cells=stops if feasible else (),
         target_ids=tuple(requested_ids),
         distance_m=outcome.distance_m if feasible else None,
         estimated_duration_min=duration if feasible else None,
