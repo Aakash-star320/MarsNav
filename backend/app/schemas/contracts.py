@@ -438,6 +438,7 @@ class NavigationInstruction(BaseModel):
 
 
 class AssistantToolName(str, Enum):
+    analysis_start = "analysis_start"
     analysis_status = "analysis_status"
     analysis_result = "analysis_result"
     target_lookup = "target_lookup"

@@ -1,5 +1,13 @@
 # Contract change log
 
+## 0.2.4 draft — assistant tool analysis_start
+
+Additive. `AssistantToolName` gains `analysis_start` so the assistant can start an analysis for an area through the same validated tool path; Python and TypeScript mirrors updated together.
+
+## 0.2.3 draft — routing terrain access
+
+Additive. `load_routing_terrain` (in-process) and `GET /analyses/{id}/terrain.npz?analysis_version=` (HTTP) give routing the verified terrain arrays with version checking; see [`TERRAIN_CONTRACT.md`](TERRAIN_CONTRACT.md). No existing field changed.
+
 ## 0.2.2 draft — map display package
 
 Additive. New Python models `MapPackage`, `MapLayerEntry`, `DemPayload` and `DemProjection` (`app/schemas/map_display.py`) mirror the display types the map module already defines in `frontend/src/features/mars-map/types.ts`; no TypeScript change was needed. New endpoints `GET /analyses/{id}/map` and `GET /analyses/{id}/layers/{kind}.png`. See [`TERRAIN_CONTRACT.md`](TERRAIN_CONTRACT.md).

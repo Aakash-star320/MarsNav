@@ -6,8 +6,9 @@ from uuid import UUID
 
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 
+from app.analyzer.integration.routing_terrain import TerrainAccessError, load_routing_terrain
 from app.analyzer.orchestration.pipeline import AnalyzerDeps
 from app.analyzer.orchestration.service import AnalysisService
 from app.analyzer.publishing.map_display import build_map_package, render_layer_png
@@ -60,7 +61,10 @@ _ARRAY = {"elevation": "elevation_m", "slope": "slope_deg", "roughness": "roughn
 
 
 @router.get("/analyses/{analysis_id}/map", response_model=MapPackage)
-def analysis_map(analysis_id: UUID, request: Request, service: AnalysisService = Depends(get_service)) -> MapPackage:
+def analysis_map(
+    analysis_id: UUID, request: Request, slope_limit_deg: float = Query(default=12.0, gt=0, le=45),
+    service: AnalysisService = Depends(get_service),
+) -> MapPackage:
     """Map-ready layers (image URLs) and a display DEM for a completed analysis."""
     terrain = service.load_terrain(analysis_id)
     if terrain is None:
@@ -68,6 +72,7 @@ def analysis_map(analysis_id: UUID, request: Request, service: AnalysisService =
     manifest, arrays = terrain
     return build_map_package(
         manifest, arrays, lambda kind: str(request.url_for("analysis_layer_png", analysis_id=analysis_id, kind=kind)),
+        slope_limit_deg=slope_limit_deg,
     )
 
 
@@ -80,4 +85,25 @@ def analysis_layer_png(analysis_id: UUID, kind: LayerKind, service: AnalysisServ
     return Response(
         render_layer_png(arrays, _ARRAY[kind]), media_type="image/png",
         headers={"ETag": f'"{manifest.sha256[:16]}-{kind}"', "Cache-Control": "private, max-age=3600"},
+    )
+
+
+_ACCESS_STATUS = {"not_found": 404, "not_ready": 409, "version_mismatch": 409, "unavailable": 404}
+
+
+@router.get("/analyses/{analysis_id}/terrain.npz", name="analysis_terrain_npz", response_class=Response)
+def analysis_terrain_npz(
+    analysis_id: UUID, analysis_version: str = Query(min_length=1, description="Must equal the analysis's version"),
+    service: AnalysisService = Depends(get_service),
+) -> Response:
+    """Raw terrain arrays (compressed .npz, layout in docs/TERRAIN_CONTRACT.md) for the routing engine."""
+    try:
+        terrain = load_routing_terrain(service, analysis_id, analysis_version)
+    except TerrainAccessError as exc:
+        raise HTTPException(_ACCESS_STATUS[exc.code], {"error_code": exc.code, "message": str(exc)}) from exc
+    path = service.terrain_file(analysis_id)
+    return Response(
+        path.read_bytes(), media_type="application/octet-stream",
+        headers={"X-Terrain-Sha256": terrain.sha256, "X-Analysis-Version": terrain.analysis_version,
+                 "X-Terrain-Version": terrain.terrain_version, "Content-Disposition": f'attachment; filename="terrain-{analysis_id}.npz"'},
     )

@@ -44,3 +44,15 @@ Each array is exposed as a `ProcessedLayer` (`kind` = `elevation`, `slope`, `rou
 - Grids larger than 257 cells on a side are decimated by an integer stride for display only (`style_hint.stride` and a note say so). Analysis keeps the full-resolution bundle.
 - Colour scales: slope uses a fixed 0-35 degree scale; elevation and roughness use the 2nd to 98th percentile of valid cells. The legend text states the actual range and the data source.
 - `vertical_datum` is reported as not stated, because the source file header does not state it.
+
+## Routing access
+
+In the same app, routing loads terrain with `load_routing_terrain(service, analysis_id, analysis_version)` (`app/analyzer/integration/routing_terrain.py`), where `service` is `app.api.routes.analyses.get_service()`. It returns a frozen `RoutingTerrain` with the six arrays, `grid`, `bounds`, `sources`, `limitations`, `sha256`, `analysis_version` and `terrain_version`, and these helpers:
+
+- `lonlat_to_cell(LonLat) -> (row, col) | None` (None outside the grid), `cell_center_lonlat(row, col)`, `cell_center_xy(row, col)`.
+- `lonlat_to_xy(LonLat)` and `xy_to_lonlat(x, y)` for the local metric frame (x east, y north, origin at the centre of `bounds`).
+- `is_usable(row, col)`, which is the `valid` mask.
+
+Failures raise `TerrainAccessError` with `code` = `not_found`, `not_ready`, `version_mismatch` (the `RouteRequest.analysis_version` differs from the analysis's) or `unavailable` (artifact missing or failed checksum). The arrays are verified (checksum, dtypes, shapes, mask consistency) before they are returned.
+
+Outside the app, `GET /api/v1/analyses/{id}/terrain.npz?analysis_version=...` returns the same `.npz` with headers `X-Terrain-Sha256`, `X-Analysis-Version` and `X-Terrain-Version`; errors use 404 (`not_found`, `unavailable`) and 409 (`not_ready`, `version_mismatch`) with `{error_code, message}`.

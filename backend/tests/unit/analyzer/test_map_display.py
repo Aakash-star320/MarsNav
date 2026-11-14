@@ -137,3 +137,36 @@ def test_http_flow_serves_package_and_png(tmp_path) -> None:
     assert img.shape[:2] == (body["dem"]["height"], body["dem"]["width"])
     assert c.get(f"/api/v1/analyses/{job_id}/layers/other.png").status_code == 422
     assert c.get("/api/v1/analyses/00000000-0000-0000-0000-000000000001/map").status_code == 404
+
+
+def test_statistics_describe_valid_cells_and_state_their_denominator(tmp_path) -> None:
+    manifest, arrays = bundle(tmp_path, fn=lambda r, c: np.where((r == 135) & (c == 382), -32768, 100 * c))
+    from app.analyzer.publishing.statistics import compute_statistics
+
+    st = compute_statistics(manifest, arrays, slope_limit_deg=5.0)
+    assert st.cells_total == 64 and st.cells_valid == 63 and st.valid_percent == pytest.approx(100 * 63 / 64)
+    g = manifest.grid
+    assert st.area_km2 == pytest.approx(8 * g.pixel_size_x_m * 8 * g.pixel_size_y_m / 1e6)
+    assert st.elevation_min_m is not None and st.elevation_max_m > st.elevation_min_m
+    assert st.slope_denominator_cells <= st.cells_valid                      # unknown cells never enter the denominator
+    assert st.slope_exceedance_fraction == pytest.approx(st.slope_exceedance_cells / st.slope_denominator_cells)
+    lenient = compute_statistics(manifest, arrays, slope_limit_deg=45.0)
+    assert lenient.slope_exceedance_cells <= st.slope_exceedance_cells
+    assert st.science_candidates == 0 and any("not a safety assessment" in n for n in st.notes)
+
+
+def test_map_endpoint_includes_statistics_and_honours_the_slope_limit(tmp_path) -> None:
+    data = blob(lambda r, c: 10 * r + c % 5)
+    deps = AnalyzerDeps(fetch_range=lambda a, b: data[a:b + 1], out_dir=tmp_path, mola_layout=SMALL, max_area_km2=1e9)
+    svc = AnalysisService(deps)
+    app = FastAPI()
+    app.include_router(analyses.router, prefix="/api/v1")
+    app.dependency_overrides[analyses.get_service] = lambda: svc
+    c = TestClient(app)
+    req = CreateAnalysisRequest(mission_id=AID, objective="terrain", roi=RegionOfInterest(
+        name="t", bounds=BoundingBox(west_deg_east=10.0, south_deg=20.0, east_deg_east=14.0, north_deg=24.0), analysis_margin_m=0))
+    job_id = c.post("/api/v1/analyses", json=req.model_dump(mode="json")).json()["id"]
+    svc.wait_idle()
+    body = c.get(f"/api/v1/analyses/{job_id}/map?slope_limit_deg=20").json()
+    assert body["statistics"]["slope_limit_deg"] == 20 and body["statistics"]["cells_total"] == 64
+    assert c.get(f"/api/v1/analyses/{job_id}/map?slope_limit_deg=0").status_code == 422

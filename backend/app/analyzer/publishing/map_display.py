@@ -23,6 +23,8 @@ from app.analyzer.preprocessing.terrain_bundle import SPHERE_RADIUS_M, TerrainMa
 from app.schemas import BoundingBox, CoverageStatus, ProcessedLayer
 from app.schemas.map_display import DemPayload, DemProjection, MapLayerEntry, MapPackage
 
+from .statistics import compute_statistics
+
 DEFAULT_MAX_DIM = 257
 SOURCE_LABEL = "USGS MOLA 463 m global DEM (interpolated product)"
 # (array name, layer kind, colours low->high, fixed range or None for data range, units, title)
@@ -109,6 +111,7 @@ def render_layer_png(arrays: dict[str, np.ndarray], array_name: str, max_dim: in
 
 def build_map_package(
     manifest: TerrainManifest, arrays: dict[str, np.ndarray], layer_url: Callable[[str], str], max_dim: int = DEFAULT_MAX_DIM,
+    slope_limit_deg: float = 12.0,
 ) -> MapPackage:
     disp, k = display_arrays(arrays, max_dim)
     shape = disp["valid"].shape
@@ -147,7 +150,10 @@ def build_map_package(
         vertical_datum="not stated in the source file header",
         values=[None if not np.isfinite(v) else round(float(v), 3) for v in z.ravel()],
     )
-    return MapPackage(analysis_id=str(manifest.analysis_id), layers=entries, dem=dem, notes=notes)
+    return MapPackage(
+        analysis_id=str(manifest.analysis_id), layers=entries, dem=dem, notes=notes,
+        statistics=compute_statistics(manifest, arrays, slope_limit_deg),
+    )
 
 
 def _layer_id(manifest: TerrainManifest, kind: str):

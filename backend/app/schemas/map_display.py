@@ -44,8 +44,38 @@ class MapLayerEntry(BaseModel):
     colors: list[str] = Field(min_length=2, max_length=2)
 
 
+class RegionStatistics(BaseModel):
+    """Descriptive statistics over valid cells at full analysis resolution (not a safety assessment)."""
+    area_km2: float
+    rows: int
+    cols: int
+    cells_total: int
+    cells_valid: int
+    valid_percent: float = Field(ge=0, le=100)
+    native_resolution_m: float | None = None
+    cell_size_x_m: float
+    cell_size_y_m: float
+    elevation_min_m: float | None = None
+    elevation_max_m: float | None = None
+    elevation_mean_m: float | None = None
+    slope_mean_deg: float | None = None
+    slope_max_deg: float | None = None
+    slope_p50_deg: float | None = None
+    slope_p90_deg: float | None = None
+    slope_p99_deg: float | None = None
+    roughness_mean_m: float | None = None
+    roughness_max_m: float | None = None
+    slope_limit_deg: float
+    slope_denominator_cells: int
+    slope_exceedance_cells: int
+    slope_exceedance_fraction: float | None = None   # exceedance_cells / denominator_cells; None when no slope is defined
+    science_candidates: int = 0
+    notes: list[str] = Field(default_factory=list)
+
+
 class MapPackage(BaseModel):
     analysis_id: str
     layers: list[MapLayerEntry]
     dem: DemPayload | None = None
+    statistics: RegionStatistics | None = None
     notes: list[str] = Field(default_factory=list)

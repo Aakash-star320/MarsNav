@@ -100,6 +100,12 @@ class AnalysisService:
         with self._lock:
             return self._jobs.get(job_id)
 
+    def latest_for_mission(self, mission_id: UUID, completed_only: bool = False) -> AnalysisJob | None:
+        """Most recently created analysis for a mission (optionally only finished ones)."""
+        with self._lock:
+            jobs = [j for j in self._jobs.values() if j.mission_id == mission_id and (not completed_only or j.stage == JobStage.completed)]
+        return max(jobs, key=lambda j: j.created_at, default=None)
+
     def get_result(self, job_id: UUID) -> RegionalAnalysisResult | None:
         path = self._deps.out_dir / str(job_id) / "result.json"
         job = self.get_job(job_id)
@@ -117,6 +123,9 @@ class AnalysisService:
             return load_terrain_bundle(path)
         except (TerrainBundleError, ValueError):
             return None
+
+    def terrain_file(self, job_id: UUID) -> Path:
+        return self._deps.out_dir / str(job_id) / "terrain.npz"
 
     def wait_idle(self) -> None:
         """Block until queued work finishes (used by tests and graceful shutdown)."""
