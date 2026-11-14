@@ -1,6 +1,6 @@
 // Client for the analysis endpoints: start a job, poll it, fetch the map package and load it into the
 // shared mission store so the 2D/3D map shows real processed layers.
-import type { BoundingBox } from '../types/contracts';
+import type { BoundingBox, ScienceTarget } from '../types/contracts';
 import type { Dem, MapLayer } from '../features/mars-map/types';
 import { useMissionStore } from '../store/missionStore';
 
@@ -19,7 +19,7 @@ export type RegionStatistics = {
   slope_limit_deg: number; slope_denominator_cells: number; slope_exceedance_cells: number; slope_exceedance_fraction?: number | null;
   science_candidates: number; notes: string[];
 };
-export type MapPackage = { analysis_id: string; layers: MapLayer[]; dem?: Dem | null; statistics?: RegionStatistics | null; notes: string[] };
+export type MapPackage = { analysis_id: string; layers: MapLayer[]; dem?: Dem | null; statistics?: RegionStatistics | null; science_targets?: ScienceTarget[]; notes: string[] };
 
 export class AnalysisError extends Error {
   constructor(message: string, readonly code?: string) { super(message); }
@@ -51,9 +51,16 @@ export async function waitForAnalysis(
     onProgress?.(job);
     if (job.stage === 'completed') return job;
     if (job.stage === 'failed') throw new AnalysisError(job.message, job.error_code ?? undefined);
+    if (job.stage === 'cancelled') throw new AnalysisError(job.message, 'cancelled');
     if (Date.now() - t0 > timeoutMs) throw new AnalysisError('The analysis is taking longer than expected; check its status later.', 'timeout');
     await new Promise((r) => setTimeout(r, intervalMs));
   }
+}
+
+/** Cancels a queued or running analysis; resolves quietly if it had already finished. */
+export async function cancelAnalysis(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/analyses/${id}/cancel`, { method: 'POST' });
+  if (!res.ok && res.status !== 409 && res.status !== 404) await json(res);
 }
 
 export async function fetchMapPackage(id: string, slopeLimitDeg?: number): Promise<MapPackage> {
@@ -66,6 +73,7 @@ export function applyMapPackage(pkg: MapPackage) {
   const s = useMissionStore.getState();
   s.setLayers(pkg.layers);
   useMissionStore.setState({ dem: pkg.dem ?? undefined, focus: Date.now() });
+  try { s.setTargets(pkg.science_targets ?? []); } catch (e) { console.warn("[analysis] targets not loaded:", (e as Error).message); }
   const first = pkg.layers.find((l) => l.layer.kind === 'elevation') ?? pkg.layers[0];
   if (first) s.setLayerVisibility(first.layer.id, true);
 }

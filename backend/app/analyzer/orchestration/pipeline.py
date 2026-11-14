@@ -16,6 +16,8 @@ from uuid import UUID
 from app.analyzer.discovery.mars_geometry import GeometryError, pad_bounds
 from app.analyzer.discovery.region_planner import RegionPlanningError, plan_analyze_region
 from app.analyzer.preprocessing.terrain_bundle import build_terrain_bundle
+from app.analyzer.publishing.science_layer import ScienceLayer, save_science_layer
+from app.analyzer.science.pipeline import ScienceDeps, ScienceOutcome, run_hydrated_minerals, wants_hydrated_minerals
 from app.analyzer.selection.selector import select_products
 from app.connectors.usgs import mola
 from app.schemas import (
@@ -46,6 +48,7 @@ class AnalyzerDeps:
     max_download_bytes: int = 64 * 1024 * 1024
     mola_layout: mola.MolaLayout = mola.LAYOUT
     catalog: Callable[[], list[DatasetRecord]] | None = None     # injectable product discovery
+    science: ScienceDeps | None = None                           # CRISM access; without it no science stage runs
 
 
 def run_region_analysis(
@@ -85,10 +88,21 @@ def run_region_analysis(
     except mola.MolaError as exc:
         raise AnalysisError(f"elevation_{exc.code}", str(exc)) from exc
 
+    science = ScienceOutcome(attempted=False)
+    if deps.science is not None and wants_hydrated_minerals(request.objective):
+        progress(JobStage.science, 90, "Searching CRISM observations and screening summary parameters")
+        science = run_hydrated_minerals(plan.bounds, deps.science)
+        if science.evidence is not None:
+            ev = science.evidence
+            save_science_layer(deps.out_dir / str(analysis_id), ScienceLayer(values=ev.values, bounds=ev.bounds, product_id=ev.product_id, pixel_m=ev.pixel_m))
     warnings.append("Elevation comes from a coarse 463 m global product: suitable for broad planning, not astronaut-scale hazard detection.")
-    warnings.append(f"Objective '{request.objective}' is not interpreted: no science products are supported yet, so no science targets are returned.")
+    if science.attempted and (science.targets or science.provenance or science.warnings):
+        warnings.extend(science.warnings)
+    else:
+        warnings.append(f"Objective '{request.objective}' is not interpreted: it does not name a supported science objective (hydrated minerals), so no science targets are returned.")
     return RegionalAnalysisResult(
         id=analysis_id, mission_id=request.mission_id, roi=request.roi.model_copy(update={"local_projection": bundle.manifest.grid.crs_wkt}),
-        projection_wkt=bundle.manifest.grid.crs_wkt, grid=bundle.manifest.grid, datasets=[dataset], layers=bundle.layers,
-        science_targets=[], warnings=warnings, processing_provenance=[bundle.layers[0].provenance], analysis_version=ANALYSIS_VERSION,
+        projection_wkt=bundle.manifest.grid.crs_wkt, grid=bundle.manifest.grid, datasets=[dataset, *science.datasets], layers=bundle.layers,
+        science_targets=science.targets, warnings=warnings,
+        processing_provenance=[bundle.layers[0].provenance, *([science.provenance] if science.provenance else [])], analysis_version=ANALYSIS_VERSION,
     )

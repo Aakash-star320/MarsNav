@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { analyzeAreaOnMap, AnalysisError, fetchMapPackage, type AnalysisJob, type RegionStatistics } from '../api/analysis';
+import { useRef, useState } from 'react';
+import { analyzeAreaOnMap, AnalysisError, cancelAnalysis, fetchMapPackage, type AnalysisJob, type RegionStatistics } from '../api/analysis';
 import { useMissionStore } from '../store/missionStore';
 import './analysis-panel.css';
 
@@ -29,23 +29,32 @@ function Stat({ label, value, hint }: { label: string; value: string; hint?: str
 /** Sidebar section for the map view: analyze the selected area with real data and read the results. */
 export function AnalysisPanel() {
   const aoi = useMissionStore((s) => s.aoi);
+  const targets = useMissionStore((s) => s.targets);
+  const selected = useMissionStore((s) => s.selectedTargetId);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [limit, setLimit] = useState(12);
+  const jobId = useRef<string | null>(null);
   const running = phase.kind === 'running';
 
   async function run() {
     if (!aoi) return;
     setPhase({ kind: 'running' });
     try {
-      const out = await analyzeAreaOnMap(aoi, (job) => setPhase({ kind: 'running', job }), limit);
+      jobId.current = null;
+      const out = await analyzeAreaOnMap(aoi, (job) => { jobId.current = job.id; setPhase({ kind: 'running', job }); }, limit);
       setPhase({ kind: 'done', id: out.analysisId, stats: out.statistics, warnings: out.warnings });
     } catch (e) {
       const err = e as AnalysisError;
+      if (err.code === 'cancelled') { setPhase({ kind: 'idle' }); return; }
       setPhase({
         kind: 'error', code: err.code,
         message: e instanceof TypeError ? 'Cannot reach the analysis service. Is the backend running?' : err.message,
       });
     }
+  }
+
+  async function cancel() {
+    if (jobId.current) await cancelAnalysis(jobId.current).catch(() => undefined);
   }
 
   async function recompute(next: number) {
@@ -70,6 +79,7 @@ export function AnalysisPanel() {
         <div className="ap-progress" role="status">
           <div className="ap-bar"><i style={{ width: `${phase.job?.progress_percent ?? 3}%` }} /></div>
           <small>{phase.job ? `${phase.job.message} · ${phase.job.progress_percent}%` : 'Starting analysis…'}</small>
+          <button className="ap-cancel" onClick={cancel} disabled={!jobId.current}>Cancel</button>
         </div>
       )}
 
@@ -104,9 +114,22 @@ export function AnalysisPanel() {
               <small> ({stats.slope_exceedance_cells.toLocaleString()} of {stats.slope_denominator_cells.toLocaleString()} cells with a defined slope)</small>
             </p>
           </div>
+          {targets.length > 0 && (
+            <div className="ap-targets">
+              <b>Spectral candidates</b>
+              <small>CRISM summary parameters, heuristic screen. Not identified minerals: check the spectrum.</small>
+              {targets.slice(0, 6).map((t) => (
+                <button key={t.id} className={t.id === selected ? 'on' : ''} onClick={() => useMissionStore.getState().setSelectedTarget(t.id)}>
+                  <span>{t.title.replace('Hydrated hydroxylated-mineral candidate ', '')}</span>
+                  <em>rank {t.relevance_score.toFixed(2)} · {t.confidence} confidence</em>
+                  <small>{t.location.latitude_deg.toFixed(4)}° N, {t.location.longitude_deg_east.toFixed(4)}° E</small>
+                </button>
+              ))}
+            </div>
+          )}
           <div className="ap-sources">
             <b>Sources</b>
-            <p>Elevation: USGS MOLA 463 m global DEM. Imagery: Viking MDIM 2.1 colour mosaic (232 m/px) via NASA Mars Trek.</p>
+            <p>Elevation: USGS MOLA 463 m global DEM. Imagery: Viking MDIM 2.1 colour mosaic (232 m/px) via NASA Mars Trek.{targets.length > 0 && " Spectral parameters: CRISM MTRDR summary products (PDS)."}</p>
           </div>
         </>
       )}

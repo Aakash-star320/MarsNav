@@ -170,3 +170,11 @@ def test_map_endpoint_includes_statistics_and_honours_the_slope_limit(tmp_path) 
     body = c.get(f"/api/v1/analyses/{job_id}/map?slope_limit_deg=20").json()
     assert body["statistics"]["slope_limit_deg"] == 20 and body["statistics"]["cells_total"] == 64
     assert c.get(f"/api/v1/analyses/{job_id}/map?slope_limit_deg=0").status_code == 422
+
+
+def test_an_area_smaller_than_two_cells_gets_2d_layers_and_no_dem(tmp_path) -> None:
+    manifest, arrays = bundle(tmp_path, box=(10.0, 20.0, 10.4, 20.4))      # inside one 0.5 degree source cell
+    pkg = build_map_package(manifest, arrays, lambda k: "http://x")
+    assert manifest.shape[0] < 2 or manifest.shape[1] < 2
+    assert pkg.dem is None and all(e.layer.bounds == manifest.bounds for e in pkg.layers)
+    assert any("no 3D surface" in n for n in pkg.notes)

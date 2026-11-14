@@ -20,7 +20,7 @@ from typing import Callable
 import numpy as np
 
 from app.analyzer.preprocessing.terrain_bundle import SPHERE_RADIUS_M, TerrainManifest
-from app.schemas import BoundingBox, CoverageStatus, ProcessedLayer
+from app.schemas import BoundingBox, CoverageStatus, ProcessedLayer, ScienceTarget
 from app.schemas.map_display import DemPayload, DemProjection, MapLayerEntry, MapPackage
 
 from .statistics import compute_statistics
@@ -111,15 +111,22 @@ def render_layer_png(arrays: dict[str, np.ndarray], array_name: str, max_dim: in
 
 def build_map_package(
     manifest: TerrainManifest, arrays: dict[str, np.ndarray], layer_url: Callable[[str], str], max_dim: int = DEFAULT_MAX_DIM,
-    slope_limit_deg: float = 12.0,
+    slope_limit_deg: float = 12.0, science_targets: list[ScienceTarget] | None = None,
+    extra_layers: list[MapLayerEntry] | None = None,
 ) -> MapPackage:
     disp, k = display_arrays(arrays, max_dim)
     shape = disp["valid"].shape
-    affine, projection, bounds = _dem_geometry(manifest, shape, k)
+    tiny = min(shape) < 2            # a single row or column has no sample extent, so no 3D surface can be built
+    if tiny:
+        affine, projection, bounds = [], None, manifest.bounds
+    else:
+        affine, projection, bounds = _dem_geometry(manifest, shape, k)
     notes = [
         "Layers and DEM are display-resolution copies of the analysis terrain; the full-resolution bundle is used for analysis.",
         "Images are draped over the DEM sample extent (half a source cell smaller than the cell edges).",
     ]
+    if tiny:
+        notes.append("The area covers fewer than 2 grid cells in one direction, so there is no 3D surface; 2D layers are draped over the cell edges.")
     if k > 1:
         notes.append(f"Decimated by a stride of {k} for display ({arrays['valid'].shape} -> {shape}).")
     native = manifest.sources[0].get("native_resolution_m")
@@ -145,14 +152,15 @@ def build_map_package(
             if not fixed else f"{title}: {lo:.0f} to {hi:.0f} {units} (fixed colour scale; {SOURCE_LABEL})",
         ))
     z = disp["elevation_m"]
-    dem = DemPayload(
+    dem = None if tiny else DemPayload(
         synthetic=False, width=shape[1], height=shape[0], bounds=bounds, projection=projection, affine=affine,
         vertical_datum="not stated in the source file header",
         values=[None if not np.isfinite(v) else round(float(v), 3) for v in z.ravel()],
     )
     return MapPackage(
-        analysis_id=str(manifest.analysis_id), layers=entries, dem=dem, notes=notes,
-        statistics=compute_statistics(manifest, arrays, slope_limit_deg),
+        analysis_id=str(manifest.analysis_id), layers=[*entries, *(extra_layers or [])], dem=dem, notes=notes,
+        statistics=compute_statistics(manifest, arrays, slope_limit_deg, len(science_targets or [])),
+        science_targets=list(science_targets or []),
     )
 
 

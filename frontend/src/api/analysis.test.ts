@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useMissionStore } from '../store/missionStore';
-import { analyzeAreaOnMap, AnalysisError, applyMapPackage, waitForAnalysis, type MapPackage } from './analysis';
+import { analyzeAreaOnMap, AnalysisError, applyMapPackage, cancelAnalysis, waitForAnalysis, type MapPackage } from './analysis';
 
 const AOI = { west_deg_east: 77.0, south_deg: 18.1, east_deg_east: 77.8, north_deg: 18.8 };
 const layer = (kind: string, id: string) => ({
@@ -59,5 +59,14 @@ describe('analysis client', () => {
     vi.spyOn(globalThis, 'fetch').mockImplementation(() => reply({ detail: 'analysis not found' }, 404));
     await expect(waitForAnalysis('zzz')).rejects.toBeInstanceOf(AnalysisError);
     await expect(waitForAnalysis('zzz')).rejects.toThrow('analysis not found');
+  });
+
+  it('reports a cancelled job with the cancelled code and cancel tolerates finished or unknown jobs', async () => {
+    vi.spyOn(globalThis, 'fetch').mockImplementation(() => reply({ id: 'a3', stage: 'cancelled', progress_percent: 40, message: 'Cancelled by request', warnings: [] }));
+    await expect(waitForAnalysis('a3')).rejects.toMatchObject({ code: 'cancelled' });
+    const calls: string[] = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => { calls.push(`${init?.method} ${String(input).replace(/^.*\/api\/v1/, '')}`); return reply({ detail: 'x' }, 409); });
+    await expect(cancelAnalysis('a3')).resolves.toBeUndefined();
+    expect(calls).toEqual(['POST /analyses/a3/cancel']);
   });
 });
