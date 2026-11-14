@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { fmtMB } from '../../api/objectives';
 import { useStore } from '../../store/dashboardStore';
 import type { DataState, Mode, Pick } from '../../types/ui';
+import { prefetchCtx } from '../mars-map/BaseImagery';
 import { fmtCoord, KM_PER_PX, lonLatToPx, parseCoordPairs } from '../../utils/geo';
 import { LAYERS, realLabel } from '../../utils/layers';
 
@@ -167,6 +168,7 @@ export default function SetupPanel() {
               s.setField('focusZoom', 13.5);
               s.setField('focus', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });   // zoom the map onto the route
               setTimeout(() => s.setField('focus', null), 1200);
+              prefetchCtx({ west: 77.38, south: 18.33, east: 77.52, north: 18.45 });
               s.setField('ret', false);
               s.generate();
             }}>Try demo route (Jezero)</button>

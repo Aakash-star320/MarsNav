@@ -166,7 +166,18 @@ export function marsCtxLayer(opacity = 1): L.GridLayer {
       return canvas;
     },
   });
-  return new (Layer as unknown as new (o: L.GridLayerOptions) => L.GridLayer)({
+  const layer = new (Layer as unknown as new (o: L.GridLayerOptions) => L.GridLayer)({
     tileSize: TREK_TILE, opacity, attribution: CTX_ATTRIBUTION, noWrap: true, updateWhenZooming: false, updateInterval: 120, keepBuffer: 2,
   });
+  // The CTX image is grey: blend only its brightness over the Viking colour, so detail sharpens without the colour vanishing.
+  layer.on('add', () => {
+    const el = layer.getContainer();
+    if (el) { el.style.mixBlendMode = 'luminosity'; el.style.filter = 'contrast(1.7) brightness(1.08)'; }
+  });
+  return layer;
+}
+
+/** Starts loading the close-up tiles for a box (degrees) so they are already there when the map zooms in. */
+export function prefetchCtx(b: { west: number; south: number; east: number; north: number }) {
+  for (const level of [9, 10, 11, 12]) trekTilesFor(level, b.west, b.south, b.east, b.north).forEach((t) => void fetchTile(ctxUrl(t)));
 }
