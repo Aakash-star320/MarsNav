@@ -279,7 +279,7 @@ details p { margin: 8px 0 0; }
 .lgcard .lgkey { display: block; margin-top: 6px; color: var(--tx2); }
 
 /* ---- the bottom panel ------------------------------------------------------------------------------- */
-#bt { background: linear-gradient(180deg, #0c1421, #080d16); border-top: 1px solid var(--line2); box-shadow: 0 -14px 30px rgba(0, 0, 0, 0.45); max-height: 40%; }
+#bt { background: linear-gradient(180deg, #0c1421, #080d16); border-top: 1px solid var(--line2); box-shadow: 0 -14px 30px rgba(0, 0, 0, 0.45); max-height: 75%; }
 #tb { gap: 4px; padding: 8px 14px 0; border-bottom: 1px solid var(--line); }
 .tab { padding: 7px 14px; margin-bottom: -1px; border: 0; border-bottom: 2px solid transparent; border-radius: 8px 8px 0 0; background: transparent; color: var(--tx2); font-weight: 500; font-size: 12.5px; }
 .tab:hover:not(:disabled):not(.on) { background: rgba(255, 255, 255, 0.04); border-color: transparent; color: var(--tx); }

@@ -64,7 +64,7 @@ export default function BottomPanel() {
   const drag = useRef<{ y: number; h: number } | null>(null);
   const open = pan.B;
   const warnCount = warningsOf(s).filter((x) => x.k !== 'info').length;
-  const clamp = (h: number) => Math.max(120, Math.min(window.innerHeight * 0.7, h));
+  const clamp = (h: number) => Math.max(120, Math.min(window.innerHeight * 0.75, h));
 
   return (
     <div id="bt" style={{ height: open ? bh : COLLAPSED }}>
