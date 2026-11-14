@@ -1,7 +1,7 @@
 """Route execution orchestration. No API endpoints or data acquisition live here."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 from uuid import UUID
 
@@ -63,7 +63,7 @@ def _route_slope_gain(outcome: RouteOutcome, terrain) -> tuple[float | None, flo
     return (max(known_slopes) if known_slopes else None), gain
 
 
-def plan_route(request: ApiRouteRequest, analysis_service: AnalysisProvider) -> RoutePlanningResult:
+def plan_route(request: ApiRouteRequest, analysis_service: AnalysisProvider, blocked_cells: frozenset[Cell] = frozenset()) -> RoutePlanningResult:
     """Load verified analysis, adapt it, and execute deterministic mission routing.
 
     Required target stops follow ``constraints.required_target_ids`` order. This is
@@ -108,7 +108,8 @@ def plan_route(request: ApiRouteRequest, analysis_service: AnalysisProvider) -> 
         base=start, waypoints=tuple(target_cells), target_count=len(requested_ids))
     warnings.extend(adapted.capability_warnings)
     costs: CostModel = build_cost_model(adapted_grid.terrain_model, adapted.preferences, adapted.limits)
-    outcome = plan_mission(adapted_grid.terrain_model, costs, adapted.request, adapted.limits)
+    engine_request = replace(adapted.request, blocked_cells=frozenset(blocked_cells)) if blocked_cells else adapted.request
+    outcome = plan_mission(adapted_grid.terrain_model, costs, engine_request, adapted.limits)
     outcome = apply_duration_limit(outcome, adapted)
     max_slope, elevation_gain = _route_slope_gain(outcome, adapted_grid.terrain_model)
 
