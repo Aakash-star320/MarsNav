@@ -65,7 +65,7 @@ def test_model_looks_up_real_results_and_the_answer_carries_tool_calls_actions_a
 
 def test_numbers_are_rounded_before_the_model_sees_them(tmp_path) -> None:
     svc, aid = finished_analysis(tmp_path)
-    model = FakeModel({"action": "tool", "tool": "analysis_result", "arguments": {"analysis_id": str(aid)}}, {"action": "final", "message": "ok"})
+    model = FakeModel({"action": "tool", "tool": "analysis_result", "arguments": {"analysis_id": str(aid)}}, {"action": "final", "message": "The terrain is gentle."})
     LlmAssistant(model, svc).handle(request("how steep?", analysis_id=aid))
     seen = model.sent[1][-1][1]
     import re
