@@ -3,7 +3,7 @@ import type { ChatAction, ChatMsg, DataState, Mode, PanelKey, Pick, Pt, Region, 
 import { STAGES, discoverTargets, planMission, planRoutes } from '../mocks/mock';
 import { combined } from '../utils/derive';
 import { useMissionStore } from './missionStore';
-import { autoTerrainRegion, getViewport } from '../utils/viewport';
+import { PLANNING_AREA, autoTerrainRegion, getViewport } from '../utils/viewport';
 import { API_BASE, AnalysisError, cancelAnalysis, createAnalysis, fetchMapPackage, waitForAnalysis } from '../api/analysis';
 import { regionToBounds, toDashboardTarget } from '../api/mapping';
 import { DEG_LON_PER_PX, KM_PER_PX } from '../utils/geo';
@@ -227,9 +227,7 @@ export const useStore = create<Store>((set, get) => {
       if (!s.online) { set({ err: 'You are offline. The 3D terrain reads real elevation from USGS and needs network access.' }); return; }
       let region = s.region;
       if (!region) {
-        const v = getViewport();
-        if (!v) return;
-        region = autoTerrainRegion(v);
+        region = autoTerrainRegion(getViewport() ?? PLANNING_AREA);
         set({ region, pick: null });
       }
       void runRealAnalysis(region, true);

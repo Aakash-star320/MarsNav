@@ -117,6 +117,7 @@ export default function MapCanvas() {
     const sync = () => {
       raf = 0;
       const size = m.getSize();
+      if (size.x < 2 || size.y < 2) return;          // hidden (the 3D view is showing): keep the last real view
       const at = (p: Pt) => m.latLngToContainerPoint(toLatLng(p));
       const p0 = at({ x: 0, y: 0 }), p1 = at({ x: W, y: H });
       const a = (p1.x - p0.x) / W, d = (p1.y - p0.y) / H;
