@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { fmtMB } from '../../api/objectives';
 import { useStore } from '../../store/dashboardStore';
 import type { DataState, Mode, Pick } from '../../types/ui';
-import { fmtCoord, KM_PER_PX, lonLatToPx } from '../../utils/geo';
+import { fmtCoord, KM_PER_PX, lonLatToPx, parseCoordPairs } from '../../utils/geo';
 import { LAYERS, realLabel } from '../../utils/layers';
 
 const MODES: [Mode, string, string][] = [
@@ -18,6 +18,33 @@ const PRIMARY: Record<Mode, [string, 'analyze' | 'generate' | 'plan']> = {
 const CATS: [keyof DataState['cats'], string][] = [
   ['elev', 'Elevation'], ['slope', 'Slope'], ['rough', 'Roughness'], ['haz', 'Potential hazards'], ['spec', 'Mineral / spectral'],
 ];
+
+/** Type or paste both points at once: "latitude, longitude  latitude, longitude". */
+function CoordBox() {
+  const s = useStore();
+  const [txt, setTxt] = useState('');
+  const [msg, setMsg] = useState('');
+  const pairs = txt.trim() ? parseCoordPairs(txt) : null;
+  const apply = () => {
+    if (!pairs || pairs.length !== 2) { setMsg('Enter two points: latitude, longitude  latitude, longitude'); return; }
+    const a = lonLatToPx(pairs[0]), b = lonLatToPx(pairs[1]);
+    s.setField('start', { ...a }); s.setField('dest', { ...b });
+    s.setField('focusZoom', 13); s.setField('focus', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
+    setTimeout(() => s.setField('focus', null), 1200);
+    setMsg('Start and Destination set. Press Generate Routes.');
+  };
+  return (
+    <div className="cbx">
+      <label>Start and destination (latitude, longitude)</label>
+      <div style={{ display: 'flex', gap: 6 }}>
+        <input value={txt} placeholder="18.37, 77.435   18.41, 77.46" aria-label="Start and destination coordinates"
+          onChange={(e) => { setTxt(e.target.value); setMsg(''); }} onKeyDown={(e) => { if (e.key === 'Enter') apply(); }} />
+        <button onClick={apply} disabled={!pairs || pairs.length !== 2}>Set</button>
+      </div>
+      {(msg || (txt.trim() && !pairs)) && <p className="nt">{msg || 'Not recognised yet: use two pairs, latitude first.'}</p>}
+    </div>
+  );
+}
 
 function LocRow({ k, label }: { k: 'start' | 'dest' | 'base'; label: string }) {
   const value = useStore((s) => s[k]);
@@ -132,7 +159,7 @@ export default function SetupPanel() {
 
         {mode === 'route' && (
           <>
-            <LocRow k="start" label="Start" /><LocRow k="dest" label="Destination" /><LocRow k="base" label="Base" />
+            <CoordBox /><LocRow k="start" label="Start" /><LocRow k="dest" label="Destination" /><LocRow k="base" label="Base" />
             <button className="inline" title="Sets Start 18.3700 N, 77.4350 E and Destination 18.4100 N, 77.4600 E in Jezero crater, then plans the route. Analyse that area first for routes on real terrain." onClick={() => {
               const a = lonLatToPx({ latitude_deg: 18.37, longitude_deg_east: 77.435 }), b = lonLatToPx({ latitude_deg: 18.41, longitude_deg_east: 77.46 });
               s.setField('start', { ...a });

@@ -327,3 +327,7 @@ th { letter-spacing: 0.05em; }
 .rad { margin-top: 22px; }
 .rad h2 { margin-top: 0; }
 #bt { min-height: 58px; }
+
+.cbx { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.cbx label { font-size: 12px; color: var(--tx2); }
+.cbx input { flex: 1; min-width: 0; }

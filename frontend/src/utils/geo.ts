@@ -101,3 +101,26 @@ export const coarseShare = (s: Stats, region: Region | null, base: Pt) =>
 
 /** Map zoom (angular CRS, 2^zoom px per degree) at which a region spans most of the screen. */
 export const regionZoom = (r: Region): number => Math.min(15, Math.max(4, Math.log2(650 / (Math.max(r.w, 1) * DEG_LON_PER_PX))));
+
+export type LatLon = { latitude_deg: number; longitude_deg_east: number };
+
+/**
+ * Reads coordinates typed as "latitude, longitude" pairs, separated by spaces, commas or semicolons, for example
+ * "18.37, 77.435  18.41, 77.46" or "18.37N 77.435E". N/S/E/W letters are honoured (S and W make the value negative).
+ * Longitude is wrapped into [-180, 180). Returns null when the text is not whole latitude/longitude pairs.
+ */
+export function parseCoordPairs(text: string): LatLon[] | null {
+  const tokens = [...text.matchAll(/([+-]?\d+(?:\.\d+)?)\s*°?\s*([NSEWnsew])?/g)];
+  if (!tokens.length || tokens.length % 2) return null;
+  const vals = tokens.map((m) => {
+    const v = parseFloat(m[1]), h = (m[2] ?? '').toUpperCase();
+    return h === 'S' || h === 'W' ? -Math.abs(v) : v;
+  });
+  const out: LatLon[] = [];
+  for (let i = 0; i < vals.length; i += 2) {
+    const lat = vals[i], lon = vals[i + 1];
+    if (!(Math.abs(lat) <= 90) || !Number.isFinite(lon)) return null;
+    out.push({ latitude_deg: lat, longitude_deg_east: lon >= -180 && lon < 180 ? lon : ((((lon + 180) % 360) + 360) % 360) - 180 });
+  }
+  return out;
+}
