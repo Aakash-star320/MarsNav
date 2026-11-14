@@ -1,5 +1,9 @@
 # Contract change log
 
+## 0.2.1 draft — terrain artifact layer kinds
+
+Additive and backwards compatible. `ProcessedLayer.kind` gains `validity` (boolean valid-data mask) and `source` (per-cell source product index) so routing and the map can consume aligned analyzer terrain. The terrain file layout is specified in [`TERRAIN_CONTRACT.md`](TERRAIN_CONTRACT.md). Python and TypeScript mirrors are updated together; no existing field changed.
+
 ## 0.2.0 draft — cross-team implementation contracts
 
 This additive contract update aligns the original scaffold with the full MarsNav feature set. It is intentionally limited to shared models, endpoint skeletons, frontend mirrors, and documentation; it does not implement analyzer, cache, routing, map, dashboard, or AI behavior.
