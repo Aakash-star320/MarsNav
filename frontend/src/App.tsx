@@ -1,20 +1,20 @@
-import { useEffect } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import TopBar from './features/dashboard/TopBar';
 import SetupPanel from './features/dashboard/SetupPanel';
 import MapWorkspace from './features/dashboard/MapWorkspace';
 import BottomPanel from './features/dashboard/BottomPanel';
 import ResultsPanel from './features/dashboard/ResultsPanel';
-import { MarsMap } from './features/mars-map/MarsMap';
 import { startStoreBridge } from './store/bridge';
-import { AnalyzeAreaControl } from './app/AnalyzeAreaControl';
 
-// `?view=map` opens the Mars map (2D / 3D terrain) on the same shared mission state; the default
-// view is the planning dashboard.
+// The Mars map module ships its own global stylesheet, so it is loaded only for the map view and
+// cannot restyle the dashboard.
+const MapView = lazy(() => import('./MapView'));
+
+// `?view=map` opens the Mars map (2D / 3D terrain) with real data; the default view is the dashboard.
 const showMarsMap = () => new URLSearchParams(window.location.search).get('view') === 'map';
 
-export default function App() {
+function Dashboard() {
   useEffect(() => startStoreBridge(), []);
-  if (showMarsMap()) return (<><MarsMap /><AnalyzeAreaControl /></>);
   return (
     <>
       <TopBar />
@@ -28,4 +28,15 @@ export default function App() {
       </div>
     </>
   );
+}
+
+export default function App() {
+  if (showMarsMap()) {
+    return (
+      <Suspense fallback={<div style={{ padding: 24, color: '#9fb0c0' }}>Loading the Mars map…</div>}>
+        <MapView />
+      </Suspense>
+    );
+  }
+  return <Dashboard />;
 }

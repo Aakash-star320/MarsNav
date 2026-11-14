@@ -9,7 +9,17 @@ export const API_BASE: string = (import.meta.env.VITE_API_BASE as string | undef
 export type AnalysisJob = {
   id: string; stage: string; progress_percent: number; message: string; warnings: string[]; error_code?: string | null;
 };
-export type MapPackage = { analysis_id: string; layers: MapLayer[]; dem?: Dem | null; notes: string[] };
+/** Descriptive statistics over valid cells (mirrors backend RegionStatistics). Not a safety assessment. */
+export type RegionStatistics = {
+  area_km2: number; rows: number; cols: number; cells_total: number; cells_valid: number; valid_percent: number;
+  native_resolution_m?: number | null; cell_size_x_m: number; cell_size_y_m: number;
+  elevation_min_m?: number | null; elevation_max_m?: number | null; elevation_mean_m?: number | null;
+  slope_mean_deg?: number | null; slope_max_deg?: number | null; slope_p50_deg?: number | null; slope_p90_deg?: number | null; slope_p99_deg?: number | null;
+  roughness_mean_m?: number | null; roughness_max_m?: number | null;
+  slope_limit_deg: number; slope_denominator_cells: number; slope_exceedance_cells: number; slope_exceedance_fraction?: number | null;
+  science_candidates: number; notes: string[];
+};
+export type MapPackage = { analysis_id: string; layers: MapLayer[]; dem?: Dem | null; statistics?: RegionStatistics | null; notes: string[] };
 
 export class AnalysisError extends Error {
   constructor(message: string, readonly code?: string) { super(message); }
@@ -46,23 +56,27 @@ export async function waitForAnalysis(
   }
 }
 
-export async function fetchMapPackage(id: string): Promise<MapPackage> {
-  return json(await fetch(`${API_BASE}/analyses/${id}/map`));
+export async function fetchMapPackage(id: string, slopeLimitDeg?: number): Promise<MapPackage> {
+  const q = slopeLimitDeg ? `?slope_limit_deg=${encodeURIComponent(slopeLimitDeg)}` : '';
+  return json(await fetch(`${API_BASE}/analyses/${id}/map${q}`));
 }
 
 /** Puts a map package into the mission store; the elevation layer starts visible. */
 export function applyMapPackage(pkg: MapPackage) {
   const s = useMissionStore.getState();
   s.setLayers(pkg.layers);
-  useMissionStore.setState({ dem: pkg.dem ?? undefined });
+  useMissionStore.setState({ dem: pkg.dem ?? undefined, focus: Date.now() });
   const first = pkg.layers.find((l) => l.layer.kind === 'elevation') ?? pkg.layers[0];
   if (first) s.setLayerVisibility(first.layer.id, true);
 }
 
-/** Runs a full analysis for an area and shows the result on the map. Returns the job's warnings. */
-export async function analyzeAreaOnMap(aoi: BoundingBox, onProgress?: (j: AnalysisJob) => void): Promise<string[]> {
+export type AnalysisOutcome = { analysisId: string; warnings: string[]; statistics?: RegionStatistics | null; notes: string[] };
+
+/** Runs a full analysis for an area and shows the result on the map. */
+export async function analyzeAreaOnMap(aoi: BoundingBox, onProgress?: (j: AnalysisJob) => void, slopeLimitDeg = 12): Promise<AnalysisOutcome> {
   const created = await createAnalysis(aoi);
   const done = await waitForAnalysis(created.id, onProgress);
-  applyMapPackage(await fetchMapPackage(created.id));
-  return done.warnings;
+  const pkg = await fetchMapPackage(created.id, slopeLimitDeg);
+  applyMapPackage(pkg);
+  return { analysisId: created.id, warnings: done.warnings, statistics: pkg.statistics, notes: pkg.notes };
 }

@@ -41,7 +41,7 @@ describe('analysis client', () => {
       return reply(PKG);
     });
     vi.spyOn(globalThis, 'setTimeout').mockImplementation(((fn: () => void) => { fn(); return 0; }) as typeof setTimeout);
-    const warnings = await analyzeAreaOnMap(AOI, (j) => seen.push(j.stage));
+    const { warnings } = await analyzeAreaOnMap(AOI, (j) => seen.push(j.stage));
     expect(warnings).toEqual(['coarse data']);
     expect(seen).toEqual(['terrain', 'completed']);
     expect(calls[0]).toBe('POST /analyses');

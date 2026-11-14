@@ -2,7 +2,8 @@ import { memo, useMemo, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { useStore } from '../../store/dashboardStore';
 import type { Pt } from '../../types/ui';
-import { elevation, fmtCoord, slopeAt } from '../../utils/geo';
+import { DEG_PER_PX, elevation, fmtCoord, lonLatToPx, pxToLonLat, slopeAt } from '../../utils/geo';
+import { trekTilesFor, trekUrl } from '../../utils/trek';
 import { combined, segsOf } from '../../utils/derive';
 
 /**
@@ -23,6 +24,23 @@ const GridLayer = memo(function GridLayer({ id, op, slope }: { id: 'elev' | 'slo
     return [<rect key={`${g.x}-${g.y}`} x={g.x} y={g.y} width={20} height={20} fill={fill} />];
   }), [id, slope]);
   return <g opacity={op}>{cells}</g>;
+});
+
+/** Real Mars surface imagery (NASA Mars Trek, Viking MDIM 232 m) behind the 800 x 500 planning canvas. */
+const RealImagery = memo(function RealImagery({ op }: { op: number }) {
+  const tiles = useMemo(() => {
+    const nw = pxToLonLat({ x: 0, y: 0 }), se = pxToLonLat({ x: 800, y: 500 });
+    return trekTilesFor(6, nw.longitude_deg_east, se.latitude_deg, se.longitude_deg_east, nw.latitude_deg).map((t) => {
+      const p = lonLatToPx({ latitude_deg: t.north, longitude_deg_east: t.west });
+      return { key: `${t.row}-${t.col}`, href: trekUrl(t), x: p.x, y: p.y, w: (t.east - t.west) / DEG_PER_PX + 0.6, h: (t.north - t.south) / DEG_PER_PX + 0.6 };
+    });
+  }, []);
+  return (
+    <g opacity={op}>
+      {tiles.map((t) => <image key={t.key} href={t.href} x={t.x} y={t.y} width={t.w} height={t.h} preserveAspectRatio="none" />)}
+      <rect width={800} height={500} fill="#0b1220" opacity={0.28} />
+    </g>
+  );
 });
 
 function Label({ p, text, fill = '#fff' }: { p: Pt; text: string; fill?: string }) {
@@ -62,8 +80,8 @@ export default function MapCanvas() {
           if (regionMode && Math.hypot(b.x - a.x, b.y - a.y) > 12) { s.setRegion({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) }); return; }
           s.mapPick(b);
         }}>
-        <rect width={800} height={500} fill={L.opt.on ? '#6b3a24' : '#120a07'} opacity={L.opt.on ? L.opt.op : 1} />
-        {L.opt.on && Array.from({ length: 14 }, (_, i) => <ellipse key={i} cx={150 + ((i * 47) % 700)} cy={60 + ((i * 83) % 400)} rx={60 + i * 7} ry={30 + i * 4} fill="#8a4e30" opacity={0.25} />)}
+        <rect width={800} height={500} fill="#0d1420" />
+        {L.opt.on && <RealImagery op={L.opt.op} />}
         {L.elev.on && <GridLayer id="elev" op={L.elev.op} slope={s.slope} />}
         {L.slope.on && <GridLayer id="slope" op={L.slope.op} slope={s.slope} />}
         {L.haz.on && <GridLayer id="haz" op={L.haz.op} slope={s.slope} />}

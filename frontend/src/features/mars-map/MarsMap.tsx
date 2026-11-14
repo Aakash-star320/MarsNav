@@ -11,6 +11,13 @@ const Terrain3D = lazy(() =>
 export type MarsMapProps = {
   onBlockedArea?: (area: BlockedArea) => void;
   demoControls?: React.ReactNode;
+  /** Wording and slots for non-demo use. Omitted props keep the demo text. */
+  workspace?: { eyebrow: string; title: string; subtitle: string };
+  viewBar?: { eyebrow: string; title: string; detail?: string };
+  badge?: string | null;
+  caption?: string;
+  sidebarExtra?: React.ReactNode;
+  notes?: React.ReactNode;
 };
 const tools: [Mode, string, string][] = [
   ["inspect", "⌖", "Inspect"],
@@ -19,7 +26,24 @@ const tools: [Mode, string, string][] = [
   ["aoi", "▧", "Area"],
   ["blocked", "⊠", "Block"],
 ];
-export function MarsMap({ onBlockedArea, demoControls }: MarsMapProps) {
+export function MarsMap({
+  onBlockedArea,
+  demoControls,
+  workspace = {
+    eyebrow: "MISSION WORKSPACE / 01",
+    title: "Across the rim.",
+    subtitle: "Local terrain reconnaissance",
+  },
+  viewBar = {
+    eyebrow: "LOCAL REGION / SYNTHETIC CRATER",
+    title: "Terrain explorer",
+    detail: "18.44° N / 77.45° E",
+  },
+  badge = "SYNTHETIC DEMO",
+  caption = "All terrain, layers and routes are synthetic",
+  sidebarExtra,
+  notes,
+}: MarsMapProps) {
   const s = store();
   useEffect(() => {
     let ids = new Set(store.getState().blockedAreas.map((a) => a.id));
@@ -53,15 +77,16 @@ export function MarsMap({ onBlockedArea, demoControls }: MarsMapProps) {
         </a>
         <div className="top-right">
           <span className="status-dot" />
-          LOCAL SESSION<span className="synthetic-badge">SYNTHETIC DEMO</span>
+          LOCAL SESSION
+          {badge && <span className="synthetic-badge">{badge}</span>}
         </div>
       </header>
       <div className="workspace">
         <aside className="sidebar">
           <div className="mission-title">
-            <div className="eyebrow">MISSION WORKSPACE / 01</div>
-            <h1>Across the rim.</h1>
-            <p>Local terrain reconnaissance</p>
+            <div className="eyebrow">{workspace.eyebrow}</div>
+            <h1>{workspace.title}</h1>
+            <p>{workspace.subtitle}</p>
           </div>
           <section>
             <div className="section-title">
@@ -113,6 +138,7 @@ export function MarsMap({ onBlockedArea, demoControls }: MarsMapProps) {
               )}
             </div>
           </section>
+          {sidebarExtra}
           <section className="layer-section">
             <div className="section-title">
               SURFACE LAYERS <span>{visible} ON</span>
@@ -306,9 +332,10 @@ export function MarsMap({ onBlockedArea, demoControls }: MarsMapProps) {
         <main className="main-area">
           <div className="viewbar">
             <div>
-              <div className="eyebrow">LOCAL REGION / SYNTHETIC CRATER</div>
+              <div className="eyebrow">{viewBar.eyebrow}</div>
               <h2>
-                Terrain explorer <span>18.44° N / 77.45° E</span>
+                {viewBar.title}{" "}
+                {viewBar.detail && <span>{viewBar.detail}</span>}
               </h2>
             </div>
             <div className="view-switch" role="group" aria-label="Map view">
@@ -362,7 +389,7 @@ export function MarsMap({ onBlockedArea, demoControls }: MarsMapProps) {
             <div className="map-caption">
               <span className="status-dot" />
               {s.view === "2d" ? "ANGULAR MAP" : "LOCAL DEM SURFACE"}
-              <small>All terrain, layers and routes are synthetic</small>
+              <small>{caption}</small>
             </div>
             {s.view === "2d" && (
               <div className="north">
@@ -428,24 +455,26 @@ export function MarsMap({ onBlockedArea, demoControls }: MarsMapProps) {
             <span>⌖ {label(s.selectedPoint)}</span>
             <span>{s.mode === "inspect" ? "Click to inspect" : message}</span>
           </div>
-          <div className="bottom-note">
-            <div>
-              <span className="eyebrow">DATA INTEGRITY</span>
-              <b>Missing coverage stays missing.</b>
-              <p>
-                The northeast corner has no elevation samples. Terrain and
-                surface geometry are omitted there.
-              </p>
+          {notes ?? (
+            <div className="bottom-note">
+              <div>
+                <span className="eyebrow">DATA INTEGRITY</span>
+                <b>Missing coverage stays missing.</b>
+                <p>
+                  The northeast corner has no elevation samples. Terrain and
+                  surface geometry are omitted there.
+                </p>
+              </div>
+              <div>
+                <span className="eyebrow">SHARED MISSION STATE</span>
+                <b>One mission. Two perspectives.</b>
+                <p>
+                  Base, targets, routes and navigation remain synchronized
+                  across map and terrain views.
+                </p>
+              </div>
             </div>
-            <div>
-              <span className="eyebrow">SHARED MISSION STATE</span>
-              <b>One mission. Two perspectives.</b>
-              <p>
-                Base, targets, routes and navigation remain synchronized across
-                map and terrain views.
-              </p>
-            </div>
-          </div>
+          )}
         </main>
       </div>
     </div>
