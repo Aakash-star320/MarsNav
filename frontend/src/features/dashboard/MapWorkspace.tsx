@@ -90,23 +90,16 @@ function NavHud() {
   );
 }
 
-const CHIPS = ['Analyze this region', 'Find the safest route', 'I have four hours of oxygen; find mineral sites and return to base', 'Avoid slopes above 10 degrees', 'Why are hydrated minerals important?'];
-const CHIP_LABELS = ['Analyze this region', 'Safest route', '4 h mission', 'Avoid slopes > 10°', 'Why hydrated minerals?'];
-
-function AssistantDrawer() {
-  const { aiOpen, toggleAi, chat, aiDraft, setAiDraft, sendChat } = useStore();
-  if (!aiOpen) return null;
+/** Small bar shown when the chat is tucked away: the last answer in one line, and a way back. */
+function ChatBar() {
+  const { aiOpen, aiBar, toggleAi } = useStore();
+  if (aiOpen || !aiBar) return null;
   return (
-    <div className="ov" id="ai">
-      <b>AI Mission Assistant</b> <span className="p w">mock · no LLM</span>
-      <button style={{ float: 'right', padding: '1px 7px' }} onClick={toggleAi} aria-label="Close assistant">×</button>
-      <div className="ms">
-        <p className="nt">Ask me to analyze a region, plan a route or plan a mission. I trigger the same verified actions as the buttons.</p>
-        {chat.map((m, i) => <div key={i}><p className="u">You: {m.u}</p><p className={m.err ? 'bd' : undefined}>{m.r}{m.note && <> <span className="nt">{m.note}</span></>}</p></div>)}
-      </div>
-      <div className="chips">{CHIPS.map((c, i) => <button key={c} onClick={() => sendChat(c)}>{CHIP_LABELS[i]}</button>)}</div>
-      <input value={aiDraft} placeholder="Type a request and press Enter" aria-label="Message the assistant"
-        onChange={(e) => setAiDraft(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') sendChat(aiDraft); }} />
+    <div id="aibar" role="status">
+      <span className="cx-orb sm">✦</span>
+      <span className="cx-bar-t">{aiBar}</span>
+      <button className="cx-bar-open" onClick={toggleAi}>Open chat</button>
+      <button className="cx-x sm" aria-label="Dismiss" onClick={() => useStore.setState({ aiBar: null })}>×</button>
     </div>
   );
 }
@@ -142,7 +135,7 @@ export default function MapWorkspace() {
       <Legend />
       <JobOverlay />
       <NavHud />
-      <AssistantDrawer />
+      <ChatBar />
     </div>
   );
 }

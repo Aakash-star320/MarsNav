@@ -32,7 +32,16 @@ export interface RealAnalysis {
 }
 export interface Nav { i: number; paused: boolean }
 export interface Pkg { n: string; sz: string; st: string; up: string }
-export interface ChatMsg { u: string; r: string; err?: boolean; note?: string }
+/** A button under an assistant answer that points at something on the map. */
+export interface ChatAction { label: string; at?: Pt; id?: string; zoom?: number; open?: 'results' }
+/** Result details shown inside an assistant answer, so the answer to a question lives in the chat itself. */
+export interface ChatCard {
+  stats: [string, string][];
+  targets: { id: string; label: string; score: number; conf: string; evidence?: string; at: Pt }[];
+  warnings: string[];
+}
+/** One exchange: the user's text (empty for a message the assistant sends by itself) and the assistant's answer. */
+export interface ChatMsg { u: string; r: string; err?: boolean; note?: string; steps?: string[]; actions?: ChatAction[]; card?: ChatCard }
 export interface Warning { k: 'bad' | 'warn' | 'info'; t: string; at?: Pt }
 export interface LayerState { on: boolean; op: number }
 export type Cats = Record<'elev' | 'slope' | 'rough' | 'haz' | 'spec' | 'therm', boolean>;
@@ -49,5 +58,5 @@ export interface DataState {
   tab: Tab; focus: Pt | null; online: boolean; cache: boolean;
   job: Job | null; err: string; stale: boolean; selT: string | null;
   pk: Pkg[]; pan: Record<PanelKey, boolean>; bh: number; adv: boolean; lyOpen: boolean;
-  real: RealAnalysis | null; layers: Record<string, LayerState>; chat: ChatMsg[]; aiOpen: boolean; aiDraft: string;
+  real: RealAnalysis | null; layers: Record<string, LayerState>; chat: ChatMsg[]; aiOpen: boolean; aiDraft: string; aiBar: string | null; focusZoom: number | null;
 }
