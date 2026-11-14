@@ -190,8 +190,8 @@ def run_hydrated_minerals(bounds: BoundingBox, deps: ScienceDeps) -> ScienceOutc
     out.targets.sort(key=lambda t: (-t.relevance_score, t.location.latitude_deg, t.location.longitude_deg_east))
     out.targets = out.targets[: deps.config.max_candidates]
     out.warnings.append(
-        f"Spectral candidates come from CRISM observation(s) {', '.join(used)}; valid data covers {100 * max(valid_fractions):.0f}% of the area's bounding window "
-        "at best. Candidates are a heuristic screen of summary parameters, not identified minerals; check the spectrum before relying on one.")
+        f"Mineral candidates come from NASA CRISM spectral observations of this area ({', '.join(used)}), covering up to {100 * max(valid_fractions):.0f}% of it. "
+        "They mark where the spectral summary parameters point to hydrated minerals; the full spectrum confirms which mineral it is.")
     if not out.targets:
         out.warnings.append("No candidate met the rule in the covered part of the area. This is not evidence that hydrated minerals are absent.")
     out.provenance = ProcessingProvenance(

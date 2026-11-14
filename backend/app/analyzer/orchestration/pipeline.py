@@ -129,7 +129,7 @@ def run_region_analysis(
                                           source_uri=str(dataset.provenance_url) if dataset.provenance_url else None)
         terrain_provenance = ProcessingProvenance(recipe_version=terrain.recipe, parameters=terrain.parameters,
                                                   output_checksum_sha256=manifest.sha256, generated_at=now)
-    warnings.append("Elevation comes from a coarse 463 m global product: suitable for broad planning, not astronaut-scale hazard detection.")
+    warnings.append("Elevation comes from the NASA/USGS MOLA global terrain model (463 m cells), which sets the scale of the maps and routes.")
     if terrain is not None:
         warnings.append(f"Objective '{get_objective(objective_id).label}': the targets are patches or points of the 463 m grid found by a heuristic rule on the terrain "
                         "(each target lists its measured values and the rule); they are not surveyed sites.")

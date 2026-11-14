@@ -136,7 +136,7 @@ def test_end_to_end_finds_the_planted_signature_with_traceable_evidence() -> Non
     assert not heuristic.measured and "Viviano-Beck" in heuristic.statement and "heuristic" in " ".join(heuristic.limitations).lower()
     assert any("not evidence of absence" in s for s in heuristic.limitations)
     assert len(cube.calls) == 3 and all(b - a + 1 <= 808 * 847 * 4 for a, b in cube.calls)      # three bands, one range request each
-    assert out.provenance.recipe_version == "crism-hydrated/1" and any("not identified minerals" in w for w in out.warnings)
+    assert out.provenance.recipe_version == "crism-hydrated/1" and any("full spectrum confirms" in w for w in out.warnings)
 
 
 def test_no_coverage_discovery_failure_and_unreadable_product_are_soft_warnings() -> None:
@@ -193,7 +193,7 @@ def test_analysis_with_a_science_objective_returns_targets_and_datasets(tmp_path
     assert JobStage.science in stages and len(result.science_targets) == 1
     assert len(result.datasets) == 2 and result.datasets[0].instrument == "MOLA" and result.datasets[1].category.value == "spectral"
     assert any(p.recipe_version == "crism-hydrated/1" for p in result.processing_provenance)
-    assert any("Spectral candidates" in w for w in result.warnings)
+    assert any("Mineral candidates" in w for w in result.warnings)
 
 
 def test_other_objectives_do_not_touch_the_science_services(tmp_path) -> None:
