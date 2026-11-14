@@ -17,12 +17,18 @@ from typing import Callable
 from uuid import UUID, uuid4
 
 from app.analyzer.preprocessing.terrain_bundle import TerrainBundleError, TerrainManifest, load_terrain_bundle
+from app.analyzer.publishing.science_layer import load_science_layer
 from app.analyzer.validation.cache_keys import analysis_result_key, stable_hash
 from app.schemas import AnalysisJob, CreateAnalysisRequest, JobStage, RegionalAnalysisResult
 
 from .pipeline import ANALYSIS_VERSION, AnalysisError, AnalyzerDeps, run_region_analysis
 
-TERMINAL = {JobStage.completed, JobStage.failed}
+TERMINAL = {JobStage.completed, JobStage.failed, JobStage.cancelled}
+PARTIAL_FILES = ("terrain.npz", "terrain.manifest.json", "science.npz", "science.json", "result.json")
+
+
+class _Cancelled(Exception):
+    """Raised inside the worker at a stage boundary once the job has been cancelled."""
 
 
 def _write_atomic(path: Path, text: str) -> None:
@@ -41,6 +47,7 @@ class AnalysisService:
         self._lock = threading.Lock()
         self._jobs: dict[UUID, AnalysisJob] = {}
         self._by_key: dict[str, UUID] = {}
+        self._cancelled: set[UUID] = set()
         self._pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="analysis")
         self._recover()
 
@@ -85,7 +92,7 @@ class AnalysisService:
         key = self.request_key(req)
         with self._lock:
             existing = self._by_key.get(key)
-            if existing is not None and self._jobs[existing].stage != JobStage.failed:
+            if existing is not None and self._jobs[existing].stage not in (JobStage.failed, JobStage.cancelled):
                 return self._jobs[existing]
             now = self._clock()
             job = AnalysisJob(id=uuid4(), mission_id=req.mission_id, stage=JobStage.queued, progress_percent=0,
@@ -124,8 +131,34 @@ class AnalysisService:
         except (TerrainBundleError, ValueError):
             return None
 
+    def load_science(self, job_id: UUID):
+        job = self.get_job(job_id)
+        if job is None or job.stage != JobStage.completed:
+            return None
+        return load_science_layer(self._deps.out_dir / str(job_id))
+
     def terrain_file(self, job_id: UUID) -> Path:
         return self._deps.out_dir / str(job_id) / "terrain.npz"
+
+    def cancel(self, job_id: UUID) -> AnalysisJob | None:
+        """Cancel a queued or running analysis; a finished one is returned unchanged. None if unknown.
+
+        A running job stops at its next stage boundary (a single network read is not interrupted) and its
+        partial artifacts are removed."""
+        with self._lock:
+            job = self._jobs.get(job_id)
+            if job is None or job.stage in TERMINAL:
+                return job
+            self._cancelled.add(job_id)
+            job = job.model_copy(update={"stage": JobStage.cancelled, "message": "Cancelled by request", "updated_at": self._clock()})
+            self._jobs[job_id] = job
+        self._save_job(job)
+        self._discard_partial(job_id)
+        return job
+
+    def _discard_partial(self, job_id: UUID) -> None:
+        for name in PARTIAL_FILES:
+            (self._deps.out_dir / str(job_id) / name).unlink(missing_ok=True)
 
     def wait_idle(self) -> None:
         """Block until queued work finishes (used by tests and graceful shutdown)."""
@@ -134,17 +167,28 @@ class AnalysisService:
     # -- worker ----------------------------------------------------------------------------------
     def _update(self, job_id: UUID, **changes: object) -> None:
         with self._lock:
-            job = self._jobs[job_id].model_copy(update={**changes, "updated_at": self._clock()})
+            current = self._jobs[job_id]
+            if current.stage == JobStage.cancelled:
+                return                                   # a cancelled job never changes state again
+            job = current.model_copy(update={**changes, "updated_at": self._clock()})
             self._jobs[job_id] = job
         self._save_job(job)
 
     def _run(self, job_id: UUID, req: CreateAnalysisRequest, key: str) -> None:
         def progress(stage: JobStage, percent: int, message: str) -> None:
+            if job_id in self._cancelled:
+                raise _Cancelled()
             self._update(job_id, stage=stage, progress_percent=percent, message=message)
+        if job_id in self._cancelled:
+            return
         try:
             result = run_region_analysis(job_id, req, self._deps, progress, self._clock())
+            if job_id in self._cancelled:
+                raise _Cancelled()
             _write_atomic(self._deps.out_dir / str(job_id) / "result.json", result.model_dump_json())
             self._update(job_id, stage=JobStage.completed, progress_percent=100, message="Analysis complete", warnings=result.warnings)
+        except _Cancelled:
+            self._discard_partial(job_id)
         except AnalysisError as exc:
             self._update(job_id, stage=JobStage.failed, error_code=exc.code, message=str(exc))
         except Exception as exc:  # unexpected: report without leaking internals, keep the worker alive

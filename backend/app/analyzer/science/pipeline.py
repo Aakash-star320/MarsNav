@@ -27,7 +27,7 @@ from app.schemas import (
 )
 
 from .crism_parameters import LITERATURE, PDS_BUNDLE_URL, PDS_DATASET_ID, PHY
-from .hydrated_minerals import REQUIRED_BANDS, Candidate, DetectionConfig, detect
+from .hydrated_minerals import REQUIRED_BANDS, Candidate, DetectionConfig, detect, evidence_map
 
 OBJECTIVE_WORDS = ("hydrated", "mineral", "clay", "phyllosilicate", "smectite", "science")
 SU_PATTERN = r"_SU\d+J_MTR3\.IMG$"
@@ -45,6 +45,15 @@ class ScienceDeps:
     config: DetectionConfig = field(default_factory=DetectionConfig)
 
 
+@dataclass(frozen=True)
+class EvidenceRaster:
+    values: np.ndarray
+    bounds: BoundingBox
+    product_id: str
+    pixel_m: float
+    valid_pixels: int
+
+
 @dataclass
 class ScienceOutcome:
     targets: list[ScienceTarget] = field(default_factory=list)
@@ -52,6 +61,7 @@ class ScienceOutcome:
     warnings: list[str] = field(default_factory=list)
     provenance: ProcessingProvenance | None = None
     attempted: bool = True
+    evidence: EvidenceRaster | None = None      # best-covered observation, for the map overlay
 
 
 def wants_hydrated_minerals(objective: str) -> bool:
@@ -137,6 +147,11 @@ def run_hydrated_minerals(bounds: BoundingBox, deps: ScienceDeps) -> ScienceOutc
             out.warnings.append(f"CRISM observation {rec.product_id} has no valid pixels in this area.")
             continue
         used.append(rec.product_id)
+        n_valid = int(valid.sum())
+        if out.evidence is None or n_valid > out.evidence.valid_pixels:
+            ev, _ = evidence_map(bands)
+            nw, se = layout.rowcol_to_lonlat(window[0], window[2]), layout.rowcol_to_lonlat(window[1], window[3])
+            out.evidence = EvidenceRaster(values=ev.astype(np.float32), bounds=BoundingBox(west_deg_east=nw.longitude_deg_east, south_deg=se.latitude_deg, east_deg_east=se.longitude_deg_east, north_deg=nw.latitude_deg), product_id=rec.product_id, pixel_m=layout.pixel_m, valid_pixels=n_valid)
         valid_fractions.append(float(valid.mean()))
         out.datasets.append(rec)
         for cand in detect(bands, deps.config):

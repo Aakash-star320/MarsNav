@@ -15,6 +15,8 @@ Honest inventory of the analyzer. Anything not marked **Implemented** is not fin
 | ODE REST adapter | `connectors/ode/ode_rest.py` | Query builder and parser, verified against recorded live replies |
 | MOLA 463 m DEM reader | `connectors/usgs/mola.py` | Windowed reads by HTTP range request; verified against the live file |
 | Science objective: hydrated minerals | `analyzer/science/`, `connectors/pds/crism_mtrdr.py` | CRISM MTRDR summary-parameter bands read by range request; heuristic candidates with evidence; rule and limits in [`SCIENCE_CRISM.md`](SCIENCE_CRISM.md) |
+| Science overlay and cancellation | `analyzer/publishing/science_layer.py`, `POST /analyses/{id}/cancel` | CRISM evidence raster served as a map layer on its own grid; queued or running jobs can be cancelled at a stage boundary and their partial files are removed |
+| Benchmarks and README | `scripts/benchmark_analyzer.py`, [`BENCHMARKS.md`](BENCHMARKS.md), `backend/README.md` | Offline and live timings measured; install, configuration, equations, examples and limits documented |
 | Assistant tools | `ai/tools/registry.py`, `ai/assistant.py`, `api/routes/assistant.py` | Validated tools (analysis start/status/result, target lookup, dataset status); deterministic request planner; answers copied from tool results; `POST /assistant/messages` |
 | Routing terrain access | `analyzer/integration/routing_terrain.py`, `api/routes/analyses.py` | Verified arrays, grid, lon/lat to cell lookup, version checking; HTTP `terrain.npz` download |
 | Map display package | `analyzer/publishing/map_display.py`, `api/routes/analyses.py` | Layer images (PNG) and a display DEM in the map module's format; frontend client in `frontend/src/api/analysis.ts` |
@@ -46,7 +48,6 @@ Not stated by the sources and therefore not claimed: the MOLA vertical unit and 
 - Multi-resolution fusion (only one elevation source is supported).
 - HRSC and HiRISE DTM readers; PDS Search API adapter.
 - Raster formats other than the MOLA layout (GeoTIFF/PDS IMG readers, reprojection).
-- Job cancellation (the job contract has no cancelled stage).
 - Mission and route orchestration, and the optimizer (owned by routing).
 - Language-model planning (Ollama) and local RAG: the assistant is deterministic and has no model or retrieval yet. Route, replan and navigation tools answer that routing is not connected.
 - Frontend chat: the dashboard's assistant drawer still uses its mock; it is not wired to `POST /assistant/messages`.

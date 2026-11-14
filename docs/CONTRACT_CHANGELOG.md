@@ -1,5 +1,9 @@
 # Contract change log
 
+## 0.2.5 draft — job cancellation and science layer
+
+Additive. `JobStage` gains `cancelled` (Python and TypeScript); `POST /analyses/{id}/cancel` cancels a queued or running analysis (409 once finished). `GET /analyses/{id}/layers/science.png` and a `science` layer entry in the map package appear for analyses with CRISM candidates; `MapPackage` also carries `science_targets`. A `dem` of `null` means the area was too small for a 3D surface.
+
 ## 0.2.4 draft — assistant tool analysis_start
 
 Additive. `AssistantToolName` gains `analysis_start` so the assistant can start an analysis for an area through the same validated tool path; Python and TypeScript mirrors updated together.

@@ -16,6 +16,7 @@ from uuid import UUID
 from app.analyzer.discovery.mars_geometry import GeometryError, pad_bounds
 from app.analyzer.discovery.region_planner import RegionPlanningError, plan_analyze_region
 from app.analyzer.preprocessing.terrain_bundle import build_terrain_bundle
+from app.analyzer.publishing.science_layer import ScienceLayer, save_science_layer
 from app.analyzer.science.pipeline import ScienceDeps, ScienceOutcome, run_hydrated_minerals, wants_hydrated_minerals
 from app.analyzer.selection.selector import select_products
 from app.connectors.usgs import mola
@@ -91,6 +92,9 @@ def run_region_analysis(
     if deps.science is not None and wants_hydrated_minerals(request.objective):
         progress(JobStage.science, 90, "Searching CRISM observations and screening summary parameters")
         science = run_hydrated_minerals(plan.bounds, deps.science)
+        if science.evidence is not None:
+            ev = science.evidence
+            save_science_layer(deps.out_dir / str(analysis_id), ScienceLayer(values=ev.values, bounds=ev.bounds, product_id=ev.product_id, pixel_m=ev.pixel_m))
     warnings.append("Elevation comes from a coarse 463 m global product: suitable for broad planning, not astronaut-scale hazard detection.")
     if science.attempted and (science.targets or science.provenance or science.warnings):
         warnings.extend(science.warnings)

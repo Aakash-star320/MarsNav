@@ -168,6 +168,7 @@ class JobStage(str, Enum):
     science = "science"
     completed = "completed"
     failed = "failed"
+    cancelled = "cancelled"
 
 
 class AnalysisJob(BaseModel):

@@ -12,6 +12,7 @@ from app.analyzer.integration.routing_terrain import TerrainAccessError, load_ro
 from app.analyzer.orchestration.pipeline import AnalyzerDeps
 from app.analyzer.orchestration.service import AnalysisService
 from app.analyzer.publishing.map_display import build_map_package, render_layer_png
+from app.analyzer.publishing.science_layer import render_science_png, science_map_entry
 from app.analyzer.science.pipeline import ScienceDeps
 from app.connectors.common.http import get_json, get_text
 from app.connectors.usgs.mola import http_range_fetcher
@@ -45,6 +46,18 @@ def get_analysis(analysis_id: UUID, service: AnalysisService = Depends(get_servi
     return job
 
 
+@router.post("/analyses/{analysis_id}/cancel", response_model=AnalysisJob)
+def cancel_analysis(analysis_id: UUID, service: AnalysisService = Depends(get_service)) -> AnalysisJob:
+    """Cancel a queued or running analysis. Finished analyses cannot be cancelled (409)."""
+    before = service.get_job(analysis_id)
+    if before is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "analysis not found")
+    job = service.cancel(analysis_id)
+    if before.stage in (JobStage.completed, JobStage.failed, JobStage.cancelled):
+        raise HTTPException(status.HTTP_409_CONFLICT, {"stage": before.stage.value, "message": "the analysis has already finished"})
+    return job
+
+
 @router.get("/analyses/{analysis_id}/result", response_model=RegionalAnalysisResult)
 def analysis_result(analysis_id: UUID, service: AnalysisService = Depends(get_service)) -> RegionalAnalysisResult:
     job = service.get_job(analysis_id)
@@ -59,7 +72,7 @@ def analysis_result(analysis_id: UUID, service: AnalysisService = Depends(get_se
     return result
 
 
-LayerKind = Literal["elevation", "slope", "roughness"]
+LayerKind = Literal["elevation", "slope", "roughness", "science"]
 _ARRAY = {"elevation": "elevation_m", "slope": "slope_deg", "roughness": "roughness_m"}
 
 
@@ -74,14 +87,24 @@ def analysis_map(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no completed analysis terrain for this id")
     manifest, arrays = terrain
     result = service.get_result(analysis_id)
+    extra = []
+    science = service.load_science(analysis_id)
+    if science is not None:
+        crism_ids = [d.id for d in (result.datasets if result else []) if d.source == "pds" or d.source == "ode"]
+        extra.append(science_map_entry(science, str(request.url_for("analysis_layer_png", analysis_id=analysis_id, kind="science")), analysis_id, crism_ids))
     return build_map_package(
         manifest, arrays, lambda kind: str(request.url_for("analysis_layer_png", analysis_id=analysis_id, kind=kind)),
-        slope_limit_deg=slope_limit_deg, science_targets=result.science_targets if result else [],
+        slope_limit_deg=slope_limit_deg, science_targets=result.science_targets if result else [], extra_layers=extra,
     )
 
 
 @router.get("/analyses/{analysis_id}/layers/{kind}.png", name="analysis_layer_png", response_class=Response)
 def analysis_layer_png(analysis_id: UUID, kind: LayerKind, service: AnalysisService = Depends(get_service)) -> Response:
+    if kind == "science":
+        sci = service.load_science(analysis_id)
+        if sci is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "this analysis has no science layer")
+        return Response(render_science_png(sci), media_type="image/png", headers={"ETag": f'"{sci.sha256[:16]}-science"', "Cache-Control": "private, max-age=3600"})
     terrain = service.load_terrain(analysis_id)
     if terrain is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no completed analysis terrain for this id")

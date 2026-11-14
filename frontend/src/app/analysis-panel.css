@@ -99,3 +99,5 @@
 .ap-targets button span { display: block; color: #eef3f7; font-weight: 600; }
 .ap-targets button em { display: block; font-style: normal; color: #bda8fa; font-size: 12px; margin-top: 2px; }
 .ap-targets button small { display: block; color: #7f90a0; margin-top: 2px; }
+
+.ap-cancel { margin-top: 6px; padding: 4px 12px; font-size: 12px; }

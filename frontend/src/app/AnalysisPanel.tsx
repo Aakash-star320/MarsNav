@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { analyzeAreaOnMap, AnalysisError, fetchMapPackage, type AnalysisJob, type RegionStatistics } from '../api/analysis';
+import { useRef, useState } from 'react';
+import { analyzeAreaOnMap, AnalysisError, cancelAnalysis, fetchMapPackage, type AnalysisJob, type RegionStatistics } from '../api/analysis';
 import { useMissionStore } from '../store/missionStore';
 import './analysis-panel.css';
 
@@ -33,21 +33,28 @@ export function AnalysisPanel() {
   const selected = useMissionStore((s) => s.selectedTargetId);
   const [phase, setPhase] = useState<Phase>({ kind: 'idle' });
   const [limit, setLimit] = useState(12);
+  const jobId = useRef<string | null>(null);
   const running = phase.kind === 'running';
 
   async function run() {
     if (!aoi) return;
     setPhase({ kind: 'running' });
     try {
-      const out = await analyzeAreaOnMap(aoi, (job) => setPhase({ kind: 'running', job }), limit);
+      jobId.current = null;
+      const out = await analyzeAreaOnMap(aoi, (job) => { jobId.current = job.id; setPhase({ kind: 'running', job }); }, limit);
       setPhase({ kind: 'done', id: out.analysisId, stats: out.statistics, warnings: out.warnings });
     } catch (e) {
       const err = e as AnalysisError;
+      if (err.code === 'cancelled') { setPhase({ kind: 'idle' }); return; }
       setPhase({
         kind: 'error', code: err.code,
         message: e instanceof TypeError ? 'Cannot reach the analysis service. Is the backend running?' : err.message,
       });
     }
+  }
+
+  async function cancel() {
+    if (jobId.current) await cancelAnalysis(jobId.current).catch(() => undefined);
   }
 
   async function recompute(next: number) {
@@ -72,6 +79,7 @@ export function AnalysisPanel() {
         <div className="ap-progress" role="status">
           <div className="ap-bar"><i style={{ width: `${phase.job?.progress_percent ?? 3}%` }} /></div>
           <small>{phase.job ? `${phase.job.message} · ${phase.job.progress_percent}%` : 'Starting analysis…'}</small>
+          <button className="ap-cancel" onClick={cancel} disabled={!jobId.current}>Cancel</button>
         </div>
       )}
 

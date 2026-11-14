@@ -51,9 +51,16 @@ export async function waitForAnalysis(
     onProgress?.(job);
     if (job.stage === 'completed') return job;
     if (job.stage === 'failed') throw new AnalysisError(job.message, job.error_code ?? undefined);
+    if (job.stage === 'cancelled') throw new AnalysisError(job.message, 'cancelled');
     if (Date.now() - t0 > timeoutMs) throw new AnalysisError('The analysis is taking longer than expected; check its status later.', 'timeout');
     await new Promise((r) => setTimeout(r, intervalMs));
   }
+}
+
+/** Cancels a queued or running analysis; resolves quietly if it had already finished. */
+export async function cancelAnalysis(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/analyses/${id}/cancel`, { method: 'POST' });
+  if (!res.ok && res.status !== 409 && res.status !== 404) await json(res);
 }
 
 export async function fetchMapPackage(id: string, slopeLimitDeg?: number): Promise<MapPackage> {
