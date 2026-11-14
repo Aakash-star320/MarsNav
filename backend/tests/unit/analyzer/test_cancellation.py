@@ -31,9 +31,11 @@ class Gate:
 
     def __init__(self) -> None:
         self.entered, self.release, self.calls = threading.Event(), threading.Event(), 0
+        self.lengths: set[int] = set()          # distinct request sizes: one per analysis window (rows are fetched concurrently)
 
     def __call__(self, a, b):
         self.calls += 1
+        self.lengths.add(b - a + 1)
         self.entered.set()
         assert self.release.wait(10), "test gate was never released"
         return BLOB[a:b + 1]
@@ -69,7 +71,7 @@ def test_a_queued_job_that_is_cancelled_never_runs(tmp_path) -> None:
     gate.release.set()
     svc.wait_idle()
     assert svc.get_job(first.id).stage == JobStage.completed
-    assert svc.get_job(second.id).stage == JobStage.cancelled and gate.calls == 1      # only the first job fetched anything
+    assert svc.get_job(second.id).stage == JobStage.cancelled and len(gate.lengths) == 1      # only the first job fetched anything (its rows share one request size)
 
 
 def test_finished_and_unknown_jobs_cannot_be_cancelled(tmp_path) -> None:

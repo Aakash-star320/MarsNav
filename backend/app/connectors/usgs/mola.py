@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import math
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from typing import Callable
 from uuid import NAMESPACE_URL, uuid5
@@ -53,6 +54,9 @@ class MolaError(RuntimeError):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+
+
+FETCH_WORKERS = 16     # concurrent row requests
 
 
 @dataclass(frozen=True)
@@ -110,14 +114,22 @@ def read_window(
 ) -> MolaWindow:
     row0, row1, col0, col1 = pixel_window(bounds, layout, halo_px)
     n_rows = row1 - row0
-    need = n_rows * layout.row_bytes
+    row_len = (col1 - col0) * layout.bytes_per_pixel
+    need = n_rows * row_len
     if need > max_bytes:
-        raise MolaError("byte_limit", f"region needs {need} bytes of MOLA rows, above the {max_bytes} byte limit; choose a smaller region")
-    start = layout.data_offset + row0 * layout.row_bytes
-    data = fetch(start, start + need - 1)
-    if len(data) != need:
-        raise MolaError("short_read", f"expected {need} bytes, received {len(data)}")
-    raw = np.frombuffer(data, dtype="<i2").reshape(n_rows, layout.width)[:, col0:col1]
+        raise MolaError("byte_limit", f"region needs {need} bytes of MOLA samples, above the {max_bytes} byte limit; choose a smaller region")
+    # Only the window's columns of each row are requested (a few hundred bytes, not the planet-wide 92 KB row), and
+    # the rows are fetched concurrently: the region costs a handful of round trips instead of one multi-MB download.
+    def one_row(r: int) -> bytes:
+        start = layout.data_offset + r * layout.row_bytes + col0 * layout.bytes_per_pixel
+        data = fetch(start, start + row_len - 1)
+        if len(data) != row_len:
+            raise MolaError("short_read", f"expected {row_len} bytes for row {r}, received {len(data)}")
+        return data
+    with ThreadPoolExecutor(max_workers=min(FETCH_WORKERS, n_rows)) as pool:
+        rows = list(pool.map(one_row, range(row0, row1)))
+    data = b"".join(rows)
+    raw = np.frombuffer(data, dtype="<i2").reshape(n_rows, col1 - col0)
     valid = raw != layout.nodata
     elevation = np.where(valid, raw.astype(np.float32), np.float32(np.nan))
     d = layout.deg_per_px
@@ -141,32 +153,31 @@ def read_window(
 
 def http_range_fetcher(url: str = MOLA_URL, timeout_s: float = 60.0, retries: int = 2, client: httpx.Client | None = None) -> RangeFetcher:
     """Range fetcher with status/content checks, bounded retries and exponential backoff."""
+    # One pooled client for every request this fetcher makes (thread-safe), so concurrent row reads reuse
+    # connections instead of paying a new TLS handshake each.
+    c = client or httpx.Client(follow_redirects=True, timeout=httpx.Timeout(timeout_s, connect=15.0),
+                               limits=httpx.Limits(max_connections=32, max_keepalive_connections=32))
+
     def fetch(first: int, last: int) -> bytes:
         expected = last - first + 1
-        owns = client is None
-        c = client or httpx.Client(follow_redirects=True, timeout=httpx.Timeout(timeout_s, connect=15.0))
-        try:
-            last_error: Exception | None = None
-            for attempt in range(retries + 1):
-                try:
-                    r = c.get(url, headers={"Range": f"bytes={first}-{last}"})
-                except httpx.TransportError as exc:          # network trouble: retry with backoff
-                    last_error = exc
-                else:
-                    ctype = r.headers.get("content-type", "")
-                    if r.status_code != 206:
-                        raise MolaError("bad_status", f"expected 206 Partial Content, got {r.status_code}")
-                    if "text/html" in ctype:
-                        raise MolaError("bad_content", "server returned an HTML page instead of raster bytes")
-                    if len(r.content) == expected:
-                        return r.content
-                    last_error = MolaError("short_read", f"expected {expected} bytes, received {len(r.content)}")
-                if attempt < retries:
-                    time.sleep(0.5 * 2 ** attempt)
-            raise MolaError("fetch_failed", f"gave up after {retries + 1} attempts: {last_error}")
-        finally:
-            if owns:
-                c.close()
+        last_error: Exception | None = None
+        for attempt in range(retries + 1):
+            try:
+                r = c.get(url, headers={"Range": f"bytes={first}-{last}"})
+            except httpx.TransportError as exc:          # network trouble: retry with backoff
+                last_error = exc
+            else:
+                ctype = r.headers.get("content-type", "")
+                if r.status_code != 206:
+                    raise MolaError("bad_status", f"expected 206 Partial Content, got {r.status_code}")
+                if "text/html" in ctype:
+                    raise MolaError("bad_content", "server returned an HTML page instead of raster bytes")
+                if len(r.content) == expected:
+                    return r.content
+                last_error = MolaError("short_read", f"expected {expected} bytes, received {len(r.content)}")
+            if attempt < retries:
+                time.sleep(0.5 * 2 ** attempt)
+        raise MolaError("fetch_failed", f"gave up after {retries + 1} attempts: {last_error}")
     return fetch
 
 

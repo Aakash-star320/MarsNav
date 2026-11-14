@@ -50,7 +50,7 @@ def test_read_window_returns_exact_pixels_and_bounds() -> None:
     assert w.row0 == row and w.col0 == col
     assert w.elevation_m[0, 0] == row * 10 + col % 7
     assert w.elevation_m.shape == (4, 4)
-    assert w.bytes_fetched == 4 * SMALL.row_bytes     # whole rows are fetched, columns are cropped locally
+    assert w.bytes_fetched == 4 * 4 * 2               # only the window's columns of each row are requested (int16)
 
 
 def test_nodata_becomes_nan_and_invalid() -> None:
@@ -145,10 +145,10 @@ def test_dataset_record_is_honest_about_limits() -> None:
 
 @pytest.mark.skipif(os.environ.get("RUN_REAL_DATA") != "1", reason="network test; set RUN_REAL_DATA=1")
 def test_real_mola_window_over_jezero() -> None:
-    """Reads ~2.6 MB (28 whole rows) from the live USGS file and sanity-checks physical plausibility."""
+    """Reads 28 small row slices from the live USGS file and sanity-checks physical plausibility."""
     w = read_window(box(77.3, 18.3, 77.5, 18.5), http_range_fetcher())
     assert w.valid.all()
     assert -9000 < np.nanmin(w.elevation_m) and np.nanmax(w.elevation_m) < 22000     # Mars elevation extremes
     s, ok = slope_deg(w.elevation_m, w.valid, w.pixel_size_x_m, w.pixel_size_y_m)
     assert ok.any() and np.nanmax(s) < 30                                            # coarse 463 m grid is smooth
-    assert w.bytes_fetched == 28 * LAYOUT.row_bytes
+    assert w.bytes_fetched == 28 * (w.elevation_m.shape[1] * 2)

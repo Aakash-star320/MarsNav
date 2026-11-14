@@ -44,7 +44,7 @@ export async function createAnalysis(aoi: BoundingBox, objective = 'terrain over
 export async function waitForAnalysis(
   id: string, onProgress?: (j: AnalysisJob) => void, opts: { intervalMs?: number; timeoutMs?: number } = {},
 ): Promise<AnalysisJob> {
-  const { intervalMs = 1000, timeoutMs = 120_000 } = opts;
+  const { intervalMs = 400, timeoutMs = 120_000 } = opts;
   const t0 = Date.now();
   for (;;) {
     const job = await json<AnalysisJob>(await fetch(`${API_BASE}/analyses/${id}`));

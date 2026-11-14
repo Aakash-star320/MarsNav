@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from app.analyzer.orchestration.pipeline import AnalyzerDeps, run_region_analysis
 from app.analyzer.orchestration.service import AnalysisService
 from app.api.routes import analyses
-from app.connectors.usgs.mola import MolaError, MolaLayout, dataset_record
+from app.connectors.usgs.mola import MolaError, MolaLayout, dataset_record, pixel_window
 from app.schemas import AnalysisJob, BoundingBox, CreateAnalysisRequest, JobStage, RegionOfInterest
 
 SMALL = MolaLayout(url="https://example.test/dem.tif", width=720, height=360, data_offset=100, deg_per_px=0.5,
@@ -90,13 +90,15 @@ def test_area_limit_fails_job_with_clear_code(tmp_path) -> None:
 
 
 def test_source_failure_is_reported_and_worker_survives(tmp_path) -> None:
-    calls = {"n": 0}
+    def width(east: float) -> int:                      # bytes per row request for a window ending at ``east``
+        _, _, c0, c1 = pixel_window(BoundingBox(west_deg_east=10.0, south_deg=20.0, east_deg_east=east, north_deg=24.0), SMALL, 1)
+        return (c1 - c0) * 2
 
-    def flaky(a, b):
-        calls["n"] += 1
-        if calls["n"] == 1:
+    def flaky(a, b):                                    # rows are fetched concurrently, so fail by window size, not call order
+        n = b - a + 1
+        if n == width(14.0):
             raise MolaError("fetch_failed", "server unreachable")
-        if calls["n"] == 2:
+        if n == width(13.0):
             raise RuntimeError("secret internal detail")
         return BLOB[a:b + 1]
     svc = AnalysisService(deps(tmp_path, fetch=flaky))
