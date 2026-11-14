@@ -63,7 +63,6 @@ function JobOverlay() {
   return (
     <div className="ov" id="jb" role="status" aria-live="polite">
       <div className="jspin" aria-hidden="true" />
-      <b>{job.title}…</b>
       <div className="jbar"><i style={{ width: `${pct}%` }} /></div>
       <button onClick={cancelJob}>Cancel</button>
     </div>
