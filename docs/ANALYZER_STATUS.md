@@ -23,6 +23,11 @@ Honest inventory of the analyzer. Anything not marked **Implemented** is not fin
 | Map display package | `analyzer/publishing/map_display.py`, `api/routes/analyses.py` | Layer images (PNG) and a display DEM in the map module's format; frontend client in `frontend/src/api/analysis.ts` |
 | Base imagery | `frontend/src/features/mars-map/BaseImagery.ts` | Mars Trek tiles composed into the map's angular coordinate system; tile maths tested; needs network access at run time (the map still works without it, with no imagery) |
 | Analysis jobs | `analyzer/orchestration/`, `api/routes/analyses.py` | Create, poll, result; one heavy job at a time; de-duplication; saved state; interrupted-job recovery |
+| Routing service | `routing/` (engine, `api_service.py`), `api/routes/routing.py` | Deterministic A* on the analysed terrain; `POST /routes`, `GET /routes/{id}`, `POST /routes/{id}/replan`, `POST /navigation/guide`; waypoints, base point, blocked areas, comparison routes with elevation profiles; routes held in memory |
+| Mission planner | `routing/mission_planner.py`, `api/routes/mission_plans.py` | `POST /mission-plans`: greedy selection of the analysis' science targets inside the oxygen budget, every leg planned by the routing engine, excluded targets listed with reasons |
+| Hosted-model assistant | `ai/llm/gemma.py`, `ai/llm_assistant.py`, `api/routes/assistant.py` | Gemma over the Generative Language REST API when `GEMMA_MODEL` and `GEMMA_API_KEY` are set; JSON tool protocol, read-only tools, validated arguments, analysis ids must come from the request or a tool result, one repair attempt, bounded loop, rule-based fallback with a warning. Not tested against a real model |
+| Dashboard map and 3D | `frontend/src/features/dashboard/MapCanvas.tsx`, `features/mars-map/Terrain3D.tsx` | Zoomable Leaflet map with an SVG overlay in canvas pixels; 3D block with imagery, side walls and hillshade lighting; 3D reads the visible area when nothing is analysed |
+| Dashboard chat | `frontend/src/features/dashboard/ChatPanel.tsx`, `api/assistant.ts` | Docked panel with tool-step chips, result cards and "show on map" actions; commands run the checked UI actions, questions go to the assistant service |
 
 ## Verified sources
 
@@ -49,9 +54,9 @@ Not stated by the sources and therefore not claimed: the MOLA vertical unit and 
 - Multi-resolution fusion (only one elevation source is supported).
 - HRSC and HiRISE DTM readers; PDS Search API adapter.
 - Raster formats other than the MOLA layout (GeoTIFF/PDS IMG readers, reprojection).
-- Mission and route orchestration, and the optimizer (owned by routing).
-- Language-model planning (Ollama) and local RAG: the assistant is deterministic and has no model or retrieval yet. Route, replan and navigation tools answer that routing is not connected.
-- Frontend chat: the dashboard's assistant drawer still uses its mock; it is not wired to `POST /assistant/messages`.
+- Optimal ordering of mission stops (the planner is greedy), and routes that use more than the 463 m terrain.
+- Local RAG (document search) and a local Ollama model: the assistant uses a hosted Gemma model when configured. The model is not offered the analysis-start or routing tools.
+- Download service, cache and the database-backed mission store (owned by the data/cache task): analyses read the sources directly and save their results on disk; routes and mission plans are kept in memory.
 - Higher-resolution imagery (CTX, HiRISE) as a map base; the base layer is the 232 m Viking colour mosaic.
 
 ## Limits and settings

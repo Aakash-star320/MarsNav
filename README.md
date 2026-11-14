@@ -6,16 +6,19 @@ MarsNav is a Martian Marswalk planner for NASA Space Apps 2026. Given a region o
 
 | Area | State |
 |---|---|
-| Shared contracts (Python and TypeScript) | Defined and mirrored; see [`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md) |
-| Terrain analysis from the MOLA 463 m global DEM | Working end to end: `POST /api/v1/analyses`, poll, fetch result |
-| Terrain bundle for routing and the map | Specified in [`docs/TERRAIN_CONTRACT.md`](docs/TERRAIN_CONTRACT.md) and produced by the analyzer |
-| Hydrated-mineral candidates (CRISM) | Heuristic candidates with evidence and a map overlay; rule and limits in [`docs/SCIENCE_CRISM.md`](docs/SCIENCE_CRISM.md) |
-| Routing terrain access, job cancellation, assistant tools | Working; see [`docs/TERRAIN_CONTRACT.md`](docs/TERRAIN_CONTRACT.md) and [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) |
-| Dashboard: Analyze Region | Uses the real analysis (statistics, layers, CRISM candidates); routes and missions remain simulated |
-| Map view (`?view=map`) | Real imagery and analysis panel |
-| Routing, caching and downloads, the mission store | See the member task documents; not covered by the analyzer |
+| Terrain analysis from the MOLA 463 m global DEM | Working end to end: draw a region, get real elevation, slope, roughness and steep-terrain layers and statistics |
+| Hydrated-mineral candidates (CRISM) | Heuristic candidates with evidence and a map overlay; rule and limits in [`docs/SCIENCE_CRISM.md`](docs/SCIENCE_CRISM.md). They are screens of summary parameters, not identified minerals |
+| Dashboard map | Zoomable and pannable Mars map (NASA Mars Trek imagery), analysis layers placed by their geographic bounds, pins for start, destination, base, waypoints and targets |
+| 2D / 3D | 3D shows the real elevation as a solid block with the imagery draped over it; it reads the visible area by itself if nothing has been analysed |
+| Routes | Real routes on the analysed terrain from the routing service: shortest / safest / balanced comparison, waypoints, a base point for the return trip, obstacles with replanning, an elevation profile and navigation guidance |
+| Science missions | Real mission planner: picks the analysis' science targets that fit the oxygen budget, plans every leg and says why a target was left out |
+| Assistant | Docked chat panel with result cards and "show on map" actions. It uses a hosted Gemma model when `GEMMA_MODEL` and `GEMMA_API_KEY` are set and a rule-based assistant otherwise; the model can only call read-only, validated tools |
+| Contracts | Python and TypeScript mirrors; see [`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md) and [`docs/CONTRACT_CHANGELOG.md`](docs/CONTRACT_CHANGELOG.md) |
+| Not built | Download service and cache, the database-backed mission store, document search (RAG), other science objectives, finer terrain than 463 m (see [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md)) |
 
-[`backend/README.md`](backend/README.md) covers installation, configuration, equations and example requests for the analyzer; [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) lists exactly what is implemented, partial and unsupported in the analyzer, with the verified data sources. Coarse global elevation supports broad planning only; it cannot show rocks or small obstacles.
+Everything runs without an API key except the optional Gemma assistant. Elevation, imagery and spectral data are read directly from public NASA and USGS servers, so an internet connection is needed. Coarse global elevation supports broad planning only: it cannot show rocks or small obstacles, slopes are not a safety assessment, and walking speed, oxygen and slope limits are prototype assumptions, not NASA values.
+
+[`backend/README.md`](backend/README.md) covers installation, configuration, equations and example requests; [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) lists exactly what is implemented, partial and unsupported, with the verified data sources.
 
 ## Repository layout
 
@@ -28,12 +31,34 @@ data/       Local data folders (contents are not committed)
 
 ## Quick start
 
-1. Copy `.env.example` to `.env` and set local values.
-2. `docker compose up -d db` starts PostgreSQL for development.
-3. Backend: `cd backend; python -m venv .venv; .venv\Scripts\activate; pip install -e '.[dev]'; uvicorn app.main:app --reload`.
-4. Frontend: `cd frontend; npm install; npm run dev`.
+Requirements: Python **3.11 or 3.12** (not 3.13 or newer), Node.js 20 or newer. PostgreSQL is not needed for the current features.
 
-The FastAPI OpenAPI document is available at `/docs`; it is the executable complement to `docs/API_CONTRACTS.md`.
+1. Optional: copy `.env.example` to `.env` at the repository root. To enable the hosted assistant set `GEMMA_MODEL` and `GEMMA_API_KEY` there; leave them empty to keep the rule-based assistant. Never commit `.env`.
+2. Backend (Git Bash):
+   ```bash
+   cd backend
+   python -m venv .venv            # on Windows: py -3.12 -m venv .venv
+   source .venv/Scripts/activate   # macOS/Linux: source .venv/bin/activate
+   pip install -e ".[dev]"
+   uvicorn app.main:app
+   ```
+3. Frontend (second terminal):
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+4. Open http://localhost:5173. The API documentation is at http://localhost:8000/docs.
+
+### A short demo
+
+1. Choose **Analyze Region**, drag a box around Jezero crater (about 20 km across) and press **Analyze Region**. You get real terrain, a statistics summary and a CRISM candidate.
+2. Switch to **3D** to see the terrain as a block with the imagery draped on it, then back to **2D** (your zoom is kept).
+3. Choose **Plan Route**, set a Start and a Destination inside the teal analysed box and press **Generate Routes**. Compare shortest / safest / balanced, check the elevation profile, then try **Report obstacle** to replan.
+4. Choose **Plan Scientific Mission** and press **Plan Mission** (raise the oxygen hours if it does not fit).
+5. Open **Ask AI assistant**: "Analyze this region", or "How steep is this area?".
+
+Analyses are saved under `data/derived/analyses/`, so repeating a request for the same area is instant, even after a restart. Routes and mission plans are kept in memory: after restarting the backend, plan them again.
 
 ### Try the analysis endpoint
 
@@ -50,7 +75,7 @@ The analyzer reads only the rows it needs from the public USGS MOLA file over HT
 ## Tests
 
 - Backend: `cd backend; python -m pytest -q`. Add `RUN_REAL_DATA=1` to also read the live MOLA file (about 2.6 MB per window).
-- Frontend: `cd frontend; npm run build` and `npm test`.
+- Frontend: `cd frontend; npm test`, `npx tsc --noEmit` and `npm run build`.
 
 ## Coordinates and units
 
