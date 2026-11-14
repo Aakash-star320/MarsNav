@@ -1,6 +1,6 @@
 import { memo, useMemo, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
-import { useStore } from '../../store/missionStore';
+import { useStore } from '../../store/dashboardStore';
 import type { Pt } from '../../types/ui';
 import { elevation, fmtCoord, slopeAt } from '../../utils/geo';
 import { combined, segsOf } from '../../utils/derive';

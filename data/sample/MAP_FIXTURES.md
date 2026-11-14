@@ -1,0 +1,1 @@
+All files here are deterministic synthetic fixtures, not NASA observations. Images and DEM have a masked northeast corner. No fixture route is a computed safe path. Run tools/generate_map_fixtures.py to regenerate. Source: local mathematical functions; seed 42. All assets generated for this demo.

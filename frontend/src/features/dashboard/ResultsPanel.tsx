@@ -1,4 +1,4 @@
-import { useStore } from '../../store/missionStore';
+import { useStore } from '../../store/dashboardStore';
 import { budgetOf, combined } from '../../utils/derive';
 import { coarseShare, fmtCoord, fmtDuration } from '../../utils/geo';
 import BudgetBar from './BudgetBar';

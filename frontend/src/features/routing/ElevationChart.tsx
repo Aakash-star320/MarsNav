@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { useStore } from '../../store/missionStore';
+import { useStore } from '../../store/dashboardStore';
 import { combined } from '../../utils/derive';
 
 /** One main chart that follows the selected route or mission. mode="slope" shows signed slope vs limit. */

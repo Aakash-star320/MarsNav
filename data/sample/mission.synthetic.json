@@ -1,0 +1,628 @@
+{
+  "bounds": {
+    "west_deg_east": 77.42865955805242,
+    "east_deg_east": 77.47134044194759,
+    "south_deg": 18.419755274170264,
+    "north_deg": 18.46024472582974
+  },
+  "base": {
+    "latitude_deg": 18.425659985870602,
+    "longitude_deg_east": 77.43310548345816
+  },
+  "destination": {
+    "latitude_deg": 18.455183544372304,
+    "longitude_deg_east": 77.46280426516856
+  },
+  "route": {
+    "id": "00000000-0000-0000-0000-000000000001",
+    "feasible": true,
+    "geometry": [
+      {
+        "latitude_deg": 18.425659985870602,
+        "longitude_deg_east": 77.43310548345816
+      },
+      {
+        "latitude_deg": 18.426405104251838,
+        "longitude_deg_east": 77.43332777972846
+      },
+      {
+        "latitude_deg": 18.42715022263307,
+        "longitude_deg_east": 77.43355007599874
+      },
+      {
+        "latitude_deg": 18.427895341014302,
+        "longitude_deg_east": 77.43377237226903
+      },
+      {
+        "latitude_deg": 18.428640459395538,
+        "longitude_deg_east": 77.43399466853931
+      },
+      {
+        "latitude_deg": 18.42938557777677,
+        "longitude_deg_east": 77.43421696480961
+      },
+      {
+        "latitude_deg": 18.430130696158002,
+        "longitude_deg_east": 77.43443926107989
+      },
+      {
+        "latitude_deg": 18.430875814539238,
+        "longitude_deg_east": 77.43466155735018
+      },
+      {
+        "latitude_deg": 18.43162093292047,
+        "longitude_deg_east": 77.43488385362046
+      },
+      {
+        "latitude_deg": 18.432366051301702,
+        "longitude_deg_east": 77.43510614989076
+      },
+      {
+        "latitude_deg": 18.433111169682938,
+        "longitude_deg_east": 77.43532844616104
+      },
+      {
+        "latitude_deg": 18.43385628806417,
+        "longitude_deg_east": 77.43555074243133
+      },
+      {
+        "latitude_deg": 18.434601406445406,
+        "longitude_deg_east": 77.43577303870161
+      },
+      {
+        "latitude_deg": 18.435304348314492,
+        "longitude_deg_east": 77.43598051522055
+      },
+      {
+        "latitude_deg": 18.436007290183582,
+        "longitude_deg_east": 77.43618799173949
+      },
+      {
+        "latitude_deg": 18.43671023205267,
+        "longitude_deg_east": 77.43639546825843
+      },
+      {
+        "latitude_deg": 18.437413173921758,
+        "longitude_deg_east": 77.43660294477735
+      },
+      {
+        "latitude_deg": 18.438116115790844,
+        "longitude_deg_east": 77.43681042129629
+      },
+      {
+        "latitude_deg": 18.438819057659934,
+        "longitude_deg_east": 77.43701789781522
+      },
+      {
+        "latitude_deg": 18.43952199952902,
+        "longitude_deg_east": 77.43722537433416
+      },
+      {
+        "latitude_deg": 18.44022494139811,
+        "longitude_deg_east": 77.4374328508531
+      },
+      {
+        "latitude_deg": 18.440927883267197,
+        "longitude_deg_east": 77.43764032737202
+      },
+      {
+        "latitude_deg": 18.441630825136286,
+        "longitude_deg_east": 77.43784780389096
+      },
+      {
+        "latitude_deg": 18.442333767005373,
+        "longitude_deg_east": 77.4380552804099
+      },
+      {
+        "latitude_deg": 18.443036708874462,
+        "longitude_deg_east": 77.43826275692884
+      },
+      {
+        "latitude_deg": 18.44373965074355,
+        "longitude_deg_east": 77.43841095444236
+      },
+      {
+        "latitude_deg": 18.44444259261264,
+        "longitude_deg_east": 77.43855915195589
+      },
+      {
+        "latitude_deg": 18.445145534481725,
+        "longitude_deg_east": 77.43870734946941
+      },
+      {
+        "latitude_deg": 18.445848476350815,
+        "longitude_deg_east": 77.43885554698294
+      },
+      {
+        "latitude_deg": 18.446551418219904,
+        "longitude_deg_east": 77.43900374449646
+      },
+      {
+        "latitude_deg": 18.44725436008899,
+        "longitude_deg_east": 77.43915194200999
+      },
+      {
+        "latitude_deg": 18.44795730195808,
+        "longitude_deg_east": 77.43930013952351
+      },
+      {
+        "latitude_deg": 18.448660243827167,
+        "longitude_deg_east": 77.43944833703704
+      },
+      {
+        "latitude_deg": 18.449363185696257,
+        "longitude_deg_east": 77.43959653455056
+      },
+      {
+        "latitude_deg": 18.450066127565343,
+        "longitude_deg_east": 77.43974473206409
+      },
+      {
+        "latitude_deg": 18.450769069434433,
+        "longitude_deg_east": 77.43989292957761
+      },
+      {
+        "latitude_deg": 18.45147201130352,
+        "longitude_deg_east": 77.44004112709113
+      },
+      {
+        "latitude_deg": 18.45185159991283,
+        "longitude_deg_east": 77.44091549242093
+      },
+      {
+        "latitude_deg": 18.452231188522134,
+        "longitude_deg_east": 77.44178985775072
+      },
+      {
+        "latitude_deg": 18.452610777131444,
+        "longitude_deg_east": 77.44266422308053
+      },
+      {
+        "latitude_deg": 18.45299036574075,
+        "longitude_deg_east": 77.44353858841032
+      },
+      {
+        "latitude_deg": 18.45336995435006,
+        "longitude_deg_east": 77.44441295374011
+      },
+      {
+        "latitude_deg": 18.453749542959365,
+        "longitude_deg_east": 77.4452873190699
+      },
+      {
+        "latitude_deg": 18.454129131568674,
+        "longitude_deg_east": 77.44616168439971
+      },
+      {
+        "latitude_deg": 18.45450872017798,
+        "longitude_deg_east": 77.4470360497295
+      },
+      {
+        "latitude_deg": 18.45488830878729,
+        "longitude_deg_east": 77.4479104150593
+      },
+      {
+        "latitude_deg": 18.455267897396595,
+        "longitude_deg_east": 77.4487847803891
+      },
+      {
+        "latitude_deg": 18.455647486005905,
+        "longitude_deg_east": 77.4496591457189
+      },
+      {
+        "latitude_deg": 18.45602707461521,
+        "longitude_deg_east": 77.45053351104869
+      },
+      {
+        "latitude_deg": 18.455956780428302,
+        "longitude_deg_east": 77.45155607389201
+      },
+      {
+        "latitude_deg": 18.455886486241393,
+        "longitude_deg_east": 77.45257863673534
+      },
+      {
+        "latitude_deg": 18.455816192054485,
+        "longitude_deg_east": 77.45360119957866
+      },
+      {
+        "latitude_deg": 18.455745897867576,
+        "longitude_deg_east": 77.45462376242197
+      },
+      {
+        "latitude_deg": 18.455675603680668,
+        "longitude_deg_east": 77.4556463252653
+      },
+      {
+        "latitude_deg": 18.45560530949376,
+        "longitude_deg_east": 77.45666888810862
+      },
+      {
+        "latitude_deg": 18.45553501530685,
+        "longitude_deg_east": 77.45769145095194
+      },
+      {
+        "latitude_deg": 18.45546472111994,
+        "longitude_deg_east": 77.45871401379526
+      },
+      {
+        "latitude_deg": 18.455394426933033,
+        "longitude_deg_east": 77.45973657663859
+      },
+      {
+        "latitude_deg": 18.455324132746124,
+        "longitude_deg_east": 77.46075913948191
+      },
+      {
+        "latitude_deg": 18.455253838559212,
+        "longitude_deg_east": 77.46178170232523
+      },
+      {
+        "latitude_deg": 18.455183544372304,
+        "longitude_deg_east": 77.46280426516856
+      }
+    ],
+    "waypoints": [
+      {
+        "latitude_deg": 18.434601406445406,
+        "longitude_deg_east": 77.43577303870161
+      },
+      {
+        "latitude_deg": 18.443036708874462,
+        "longitude_deg_east": 77.43826275692884
+      },
+      {
+        "latitude_deg": 18.45147201130352,
+        "longitude_deg_east": 77.44004112709113
+      },
+      {
+        "latitude_deg": 18.45602707461521,
+        "longitude_deg_east": 77.45053351104869
+      },
+      {
+        "latitude_deg": 18.455183544372304,
+        "longitude_deg_east": 77.46280426516856
+      }
+    ],
+    "metrics": {
+      "distance_m": 2921,
+      "estimated_duration_min": 83,
+      "confidence": "unknown"
+    },
+    "target_ids": [],
+    "warnings": [
+      "Synthetic prescribed route; no safety or science assessment."
+    ],
+    "constraint_conflicts": [],
+    "segments": [],
+    "elevation_profile": [],
+    "alternatives": [],
+    "conflict_details": []
+  },
+  "alternatives": [
+    {
+      "id": "00000000-0000-0000-0000-000000000002",
+      "feasible": true,
+      "geometry": [
+        {
+          "latitude_deg": 18.425659985870602,
+          "longitude_deg_east": 77.43310548345816
+        },
+        {
+          "latitude_deg": 18.425519397496785,
+          "longitude_deg_east": 77.43414286605284
+        },
+        {
+          "latitude_deg": 18.425378809122968,
+          "longitude_deg_east": 77.43518024864751
+        },
+        {
+          "latitude_deg": 18.42523822074915,
+          "longitude_deg_east": 77.43621763124219
+        },
+        {
+          "latitude_deg": 18.425097632375333,
+          "longitude_deg_east": 77.43725501383686
+        },
+        {
+          "latitude_deg": 18.424957044001516,
+          "longitude_deg_east": 77.43829239643154
+        },
+        {
+          "latitude_deg": 18.4248164556277,
+          "longitude_deg_east": 77.43932977902621
+        },
+        {
+          "latitude_deg": 18.424675867253878,
+          "longitude_deg_east": 77.44036716162088
+        },
+        {
+          "latitude_deg": 18.42453527888006,
+          "longitude_deg_east": 77.44140454421556
+        },
+        {
+          "latitude_deg": 18.424394690506244,
+          "longitude_deg_east": 77.44244192681023
+        },
+        {
+          "latitude_deg": 18.424254102132426,
+          "longitude_deg_east": 77.4434793094049
+        },
+        {
+          "latitude_deg": 18.42411351375861,
+          "longitude_deg_east": 77.44451669199958
+        },
+        {
+          "latitude_deg": 18.423972925384792,
+          "longitude_deg_east": 77.44555407459426
+        },
+        {
+          "latitude_deg": 18.424183807945518,
+          "longitude_deg_east": 77.44659145718893
+        },
+        {
+          "latitude_deg": 18.424394690506244,
+          "longitude_deg_east": 77.4476288397836
+        },
+        {
+          "latitude_deg": 18.42460557306697,
+          "longitude_deg_east": 77.44866622237828
+        },
+        {
+          "latitude_deg": 18.4248164556277,
+          "longitude_deg_east": 77.44970360497295
+        },
+        {
+          "latitude_deg": 18.425027338188425,
+          "longitude_deg_east": 77.45074098756763
+        },
+        {
+          "latitude_deg": 18.42523822074915,
+          "longitude_deg_east": 77.4517783701623
+        },
+        {
+          "latitude_deg": 18.425449103309877,
+          "longitude_deg_east": 77.45281575275698
+        },
+        {
+          "latitude_deg": 18.425659985870602,
+          "longitude_deg_east": 77.45385313535165
+        },
+        {
+          "latitude_deg": 18.42587086843133,
+          "longitude_deg_east": 77.45489051794632
+        },
+        {
+          "latitude_deg": 18.426081750992058,
+          "longitude_deg_east": 77.455927900541
+        },
+        {
+          "latitude_deg": 18.426292633552784,
+          "longitude_deg_east": 77.45696528313567
+        },
+        {
+          "latitude_deg": 18.42650351611351,
+          "longitude_deg_east": 77.45800266573035
+        },
+        {
+          "latitude_deg": 18.427206457982596,
+          "longitude_deg_east": 77.45869919404392
+        },
+        {
+          "latitude_deg": 18.427909399851686,
+          "longitude_deg_east": 77.45939572235748
+        },
+        {
+          "latitude_deg": 18.428612341720772,
+          "longitude_deg_east": 77.46009225067105
+        },
+        {
+          "latitude_deg": 18.42931528358986,
+          "longitude_deg_east": 77.46078877898461
+        },
+        {
+          "latitude_deg": 18.43001822545895,
+          "longitude_deg_east": 77.46148530729818
+        },
+        {
+          "latitude_deg": 18.430721167328038,
+          "longitude_deg_east": 77.46218183561174
+        },
+        {
+          "latitude_deg": 18.431424109197128,
+          "longitude_deg_east": 77.46287836392531
+        },
+        {
+          "latitude_deg": 18.432127051066214,
+          "longitude_deg_east": 77.46357489223888
+        },
+        {
+          "latitude_deg": 18.432829992935304,
+          "longitude_deg_east": 77.46427142055245
+        },
+        {
+          "latitude_deg": 18.43353293480439,
+          "longitude_deg_east": 77.46496794886602
+        },
+        {
+          "latitude_deg": 18.43423587667348,
+          "longitude_deg_east": 77.46566447717959
+        },
+        {
+          "latitude_deg": 18.434938818542566,
+          "longitude_deg_east": 77.46636100549316
+        },
+        {
+          "latitude_deg": 18.43585264297238,
+          "longitude_deg_east": 77.46642028449855
+        },
+        {
+          "latitude_deg": 18.436766467402197,
+          "longitude_deg_east": 77.46647956350397
+        },
+        {
+          "latitude_deg": 18.43768029183201,
+          "longitude_deg_east": 77.46653884250938
+        },
+        {
+          "latitude_deg": 18.438594116261825,
+          "longitude_deg_east": 77.46659812151479
+        },
+        {
+          "latitude_deg": 18.43950794069164,
+          "longitude_deg_east": 77.4666574005202
+        },
+        {
+          "latitude_deg": 18.440421765121453,
+          "longitude_deg_east": 77.4667166795256
+        },
+        {
+          "latitude_deg": 18.44133558955127,
+          "longitude_deg_east": 77.46677595853102
+        },
+        {
+          "latitude_deg": 18.442249413981084,
+          "longitude_deg_east": 77.46683523753643
+        },
+        {
+          "latitude_deg": 18.443163238410897,
+          "longitude_deg_east": 77.46689451654184
+        },
+        {
+          "latitude_deg": 18.444077062840712,
+          "longitude_deg_east": 77.46695379554725
+        },
+        {
+          "latitude_deg": 18.444990887270528,
+          "longitude_deg_east": 77.46701307455265
+        },
+        {
+          "latitude_deg": 18.44590471170034,
+          "longitude_deg_east": 77.46707235355807
+        },
+        {
+          "latitude_deg": 18.44667794775634,
+          "longitude_deg_east": 77.4667166795256
+        },
+        {
+          "latitude_deg": 18.447451183812337,
+          "longitude_deg_east": 77.46636100549316
+        },
+        {
+          "latitude_deg": 18.448224419868332,
+          "longitude_deg_east": 77.46600533146069
+        },
+        {
+          "latitude_deg": 18.44899765592433,
+          "longitude_deg_east": 77.46564965742823
+        },
+        {
+          "latitude_deg": 18.449770891980325,
+          "longitude_deg_east": 77.46529398339577
+        },
+        {
+          "latitude_deg": 18.450544128036324,
+          "longitude_deg_east": 77.4649383093633
+        },
+        {
+          "latitude_deg": 18.45131736409232,
+          "longitude_deg_east": 77.46458263533086
+        },
+        {
+          "latitude_deg": 18.452090600148317,
+          "longitude_deg_east": 77.4642269612984
+        },
+        {
+          "latitude_deg": 18.452863836204315,
+          "longitude_deg_east": 77.46387128726593
+        },
+        {
+          "latitude_deg": 18.45363707226031,
+          "longitude_deg_east": 77.46351561323347
+        },
+        {
+          "latitude_deg": 18.45441030831631,
+          "longitude_deg_east": 77.463159939201
+        },
+        {
+          "latitude_deg": 18.455183544372304,
+          "longitude_deg_east": 77.46280426516856
+        }
+      ],
+      "waypoints": [
+        {
+          "latitude_deg": 18.423972925384792,
+          "longitude_deg_east": 77.44555407459426
+        },
+        {
+          "latitude_deg": 18.42650351611351,
+          "longitude_deg_east": 77.45800266573035
+        },
+        {
+          "latitude_deg": 18.434938818542566,
+          "longitude_deg_east": 77.46636100549316
+        },
+        {
+          "latitude_deg": 18.44590471170034,
+          "longitude_deg_east": 77.46707235355807
+        },
+        {
+          "latitude_deg": 18.455183544372304,
+          "longitude_deg_east": 77.46280426516856
+        }
+      ],
+      "metrics": {
+        "distance_m": 3361,
+        "estimated_duration_min": 96,
+        "confidence": "unknown"
+      },
+      "target_ids": [],
+      "warnings": [
+        "Synthetic prescribed route; no safety or science assessment."
+      ],
+      "constraint_conflicts": [],
+      "segments": [],
+      "elevation_profile": [],
+      "alternatives": [],
+      "conflict_details": []
+    }
+  ],
+  "targets": [
+    {
+      "id": "00000000-0000-0000-0000-000000000101",
+      "location": {
+        "latitude_deg": 18.443036708874462,
+        "longitude_deg_east": 77.43826275692884
+      },
+      "title": "Western outcrop \u00b7 synthetic",
+      "objective_category": "synthetic-preview",
+      "relevance_score": 0,
+      "confidence": "unknown",
+      "evidence": []
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000102",
+      "location": {
+        "latitude_deg": 18.45147201130352,
+        "longitude_deg_east": 77.44004112709113
+      },
+      "title": "Rim survey \u00b7 synthetic",
+      "objective_category": "synthetic-preview",
+      "relevance_score": 0,
+      "confidence": "unknown",
+      "evidence": []
+    },
+    {
+      "id": "00000000-0000-0000-0000-000000000103",
+      "location": {
+        "latitude_deg": 18.431902109668105,
+        "longitude_deg_east": 77.46120373202248
+      },
+      "title": "Southern exposure \u00b7 synthetic",
+      "objective_category": "synthetic-preview",
+      "relevance_score": 0,
+      "confidence": "unknown",
+      "evidence": []
+    }
+  ]
+}
