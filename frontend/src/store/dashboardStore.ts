@@ -284,6 +284,27 @@ export const useStore = create<Store>((set, get) => {
     }
   };
 
+  /** The area around the start, destination, waypoints and (for a return trip) the base, padded and never smaller than 12 km across. */
+  const areaAround = (s: DataState): Region | null => {
+    const pts = [s.start, s.dest, ...s.wps, ...(s.ret ? [s.base] : [])].filter((p): p is Pt => !!p);
+    const x0 = Math.min(...pts.map((p) => p.x)), x1 = Math.max(...pts.map((p) => p.x)), y0 = Math.min(...pts.map((p) => p.y)), y1 = Math.max(...pts.map((p) => p.y));
+    const w = Math.max(600, (x1 - x0) * 1.5), h = Math.max(600, (y1 - y0) * 1.5);          // 600 px x 20 m = 12 km
+    if (w > 2250 || h > 2250) return null;                                                   // 45 km: one analysis covers about 2,000 km2 at most
+    return { x: Math.round((x0 + x1) / 2 - w / 2), y: Math.round((y0 + y1) / 2 - h / 2), w: Math.round(w), h: Math.round(h) };
+  };
+  const analyseThenRoute = async () => {
+    const s = get();
+    const region = areaAround(s);
+    if (!region) { set({ err: 'The start, destination and base are more than about 45 km apart: one analysis cannot cover them. Move them closer together.' }); return; }
+    set({ region, pick: null });
+    await runRealAnalysis(region, true);                                  // terrain only: no CRISM search is needed to route
+    const st = get();
+    if (!st.real || !st.start || !st.dest) return;                       // the analysis failed or was cancelled; its message is already shown
+    const why = outsideAnalysis(st, st.start);
+    if (why) { set({ err: why }); return; }
+    void runRealRoutes(st.start);
+  };
+
   const applyMission = (from: Pt) => {
     const s = get();
     const prev = s.mission?.feasible ? combined(s)?.s.p ?? null : null;
@@ -330,6 +351,8 @@ export const useStore = create<Store>((set, get) => {
       const s = get();
       set({ stale: false });
       if (!s.start || !s.dest) { set({ err: 'Set both a Start and a Destination first. Use Set on map, or choose a science target.' }); return; }
+      if (s.job) return;
+      if (!s.real && s.online && s.wps.length <= 10) { void analyseThenRoute(); return; }   // no analysed terrain yet: analyse the area around the points, then route
       if (realRoutesFor(s) && s.real) {
         if (!s.online) { set({ err: 'You are offline. Real routes come from the routing service and need the backend.' }); return; }
         const why = outsideAnalysis(s, s.start);
@@ -454,8 +477,10 @@ export const useStore = create<Store>((set, get) => {
       if (!k || k === 'region') return;
       const inFrame = p.x >= 0 && p.y >= 0 && p.x <= 800 && p.y <= 500;
       const inAnalysis = !!s.real && insideRect(p, analysedRect(s.real));      // real routes may go anywhere on the analysed terrain
-      if (!inFrame && !inAnalysis) {
-        set({ err: s.real ? 'That point is outside the analysed area (the teal box) and the planning frame. Real routes only exist on analysed terrain; click inside the teal box.' : 'That point is outside the planning area (the dashed frame, 16 × 10 km). Simulated routes only exist inside it; click inside the frame, or press Fit to see it.' });
+      // Online, a point can go anywhere: Generate Routes analyses the area around the points first. Offline there is no real terrain,
+      // so the simulated planner (which only exists inside the 16 x 10 km frame) is the only option.
+      if (!inFrame && !inAnalysis && !s.online) {
+        set({ err: 'You are offline, so only the simulated planner is available, and it only exists inside the planning frame (the dashed frame, 16 × 10 km). Click inside the frame, or go online to route anywhere.' });
         return;
       }
       set({ pick: null, err: '' });

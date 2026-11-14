@@ -197,8 +197,8 @@ export default function MapCanvas() {
               <rect x={cov.x} y={cov.y} width={cov.w} height={cov.h} fill="#2dd4d0" />
             </g>
           )}
-          <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.5} strokeDasharray="2 6" vectorEffect={NS} />
-          {k.a * W > 420 && <Pin p={{ x: 0, y: 0 }} k={k}><text x={6} y={16} fill="#fff" fillOpacity={0.8} fontSize={11} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">Planning area · 16 × 10 km (routes are simulated inside it)</text></Pin>}
+          {!s.real && !s.online && <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.5} strokeDasharray="2 6" vectorEffect={NS} />}
+          {!s.real && !s.online && k.a * W > 420 && <Pin p={{ x: 0, y: 0 }} k={k}><text x={6} y={16} fill="#fff" fillOpacity={0.8} fontSize={11} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">Planning area · 16 × 10 km (routes are simulated inside it)</text></Pin>}
           {s.region && <rect x={s.region.x} y={s.region.y} width={s.region.w} height={s.region.h} fill="none" stroke="#2dd4d0" strokeWidth={2} strokeDasharray="8 4" vectorEffect={NS} />}
           {s.obs.map((o, i) => (
             <g key={i}>

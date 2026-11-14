@@ -54,7 +54,7 @@ Requirements: Python **3.11 or 3.12** (not 3.13 or newer), Node.js 20 or newer. 
 
 1. Choose **Analyze Region**, drag a box around Jezero crater (about 20 km across) and press **Analyze Region**. You get real terrain, a statistics summary and a CRISM candidate.
 2. Switch to **3D** to see the terrain as a block with the imagery draped on it, then back to **2D** (your zoom is kept).
-3. Choose **Plan Route**, set a Start and a Destination inside the teal analysed box and press **Generate Routes**. Compare shortest / safest / balanced, check the elevation profile, then try **Report obstacle** to replan.
+3. Choose **Plan Route**, set a Start and a Destination anywhere (up to about 45 km apart) and press **Generate Routes**: the area around them is analysed first, then you get real routes. Compare shortest / safest / balanced, check the elevation profile, then try **Report obstacle** to replan.
 4. Choose **Plan Scientific Mission** and press **Plan Mission** (raise the oxygen hours if it does not fit).
 5. Open **Ask AI assistant**: "Analyze this region", or "How steep is this area?".
 

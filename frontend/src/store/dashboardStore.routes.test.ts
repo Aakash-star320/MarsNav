@@ -160,10 +160,59 @@ describe('real routes from the routing service', () => {
     expect(useStore.getState().routes).toEqual([]);
   });
 
-  it('without an analysis the simulated planner is used and the routes are labelled simulated', () => {
-    useStore.setState({ real: null });
+  it('offline, without an analysis, the simulated planner is used and labelled simulated', () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    useStore.setState({ real: null, online: false });
     useStore.getState().generate();
     expect(useStore.getState().routeSource).not.toBe('real');
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('online without an analysis: the area around the points is analysed first, then the routes are real', async () => {
+    const calls: string[] = [];
+    let analysed: Record<string, any> = {};
+    const layer = (kind: string) => ({ layer: { id: kind, kind, uri: `http://api/x/${kind}.png`, bounds: BOUNDS }, projection: 'MARS:CANONICAL_ANGULAR', format: 'image' });
+    vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
+      const url = String(input).replace(/^.*\/api\/v1/, '');
+      calls.push(`${init?.method ?? 'GET'} ${url.split('?')[0]}`);
+      if (url === '/analyses') { analysed = JSON.parse(String(init?.body)); return reply({ id: 'a9', mission_id: 'm9', stage: 'queued', progress_percent: 0, message: 'q', warnings: [] }, 202); }
+      if (url === '/analyses/a9') return reply({ id: 'a9', stage: 'completed', progress_percent: 100, message: 'done', warnings: [] });
+      if (url.startsWith('/analyses/a9/map')) return reply({ analysis_id: 'a9', layers: [layer('elevation'), layer('slope')], dem: null, statistics: { elevation_min_m: -2700, elevation_max_m: -2500, slope_mean_deg: 2, slope_max_deg: 9, slope_limit_deg: 20, slope_exceedance_fraction: 0, science_candidates: 0, notes: [] }, science_targets: [], notes: [] });
+      if (url === '/routes') return reply(result());
+      return reply({});
+    });
+    useStore.setState({ real: null, start: { x: 100, y: 100 }, dest: { x: 3000, y: 150 }, ret: false });      // 58 km apart: too far for one analysis
+    useStore.getState().generate();
+    expect(useStore.getState().err).toMatch(/more than about 45 km apart/);
+    expect(calls).toEqual([]);
+
+    useStore.setState({ err: '', dest: { x: 700, y: 400 } });                                                   // 14 km: fine, and outside the old 800 x 500 frame is also fine
+    useStore.getState().mapPick({ x: -300, y: 50 });                                                            // no pick active: ignored, but must not raise the old frame error
+    expect(useStore.getState().err).toBe('');
+    useStore.getState().generate();
+    await vi.waitFor(() => expect(useStore.getState().routes.length).toBeGreaterThan(0), { timeout: 5000 });
+    expect(calls.indexOf('POST /analyses')).toBeLessThan(calls.indexOf('POST /routes'));                         // analysis first, then routes
+    const b = analysed.roi.bounds;
+    expect(b.east_deg_east).toBeGreaterThan(b.west_deg_east);
+    expect(analysed.objective).toBe('terrain overview');                                                         // terrain only: no spectral search just to route
+    const s = useStore.getState();
+    expect(s.real?.id).toBe('a9');
+    expect(s.routeSource).toBe('real');
+    expect(s.region).not.toBeNull();
+  });
+
+  it('while online a point can be placed far outside the old planning frame', () => {
+    useStore.setState({ real: null, online: true, pick: 'start', err: '' });
+    useStore.getState().mapPick({ x: -900, y: 1200 });
+    expect(useStore.getState().err).toBe('');
+    expect(useStore.getState().start).toEqual({ x: -900, y: 1200 });
+  });
+
+  it('offline the old frame limit still applies, with a clear reason', () => {
+    useStore.setState({ real: null, online: false, pick: 'start', err: '' });
+    useStore.getState().mapPick({ x: -900, y: 1200 });
+    expect(useStore.getState().err).toMatch(/offline/);
+    expect(useStore.getState().start).not.toEqual({ x: -900, y: 1200 });
   });
 
   it('a new obstacle is sent to the replan endpoint, not planned from scratch', async () => {
