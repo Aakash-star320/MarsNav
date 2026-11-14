@@ -328,6 +328,13 @@ th { letter-spacing: 0.05em; }
 .rad h2 { margin-top: 0; }
 #bt { min-height: 58px; }
 
-.cbx { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
-.cbx label { font-size: 12px; color: var(--tx2); }
-.cbx input { flex: 1; min-width: 0; }
+.cbx { display: flex; flex-direction: column; gap: 7px; margin: 4px 0 10px; padding: 12px; border-radius: 12px; background: rgba(61, 232, 207, 0.04); border: 1px solid var(--line2); }
+.cbx label { font-size: 12.5px; font-weight: 600; color: var(--tx); }
+.cbx .row { display: flex; gap: 8px; }
+.cbx input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border-radius: 9px; background: #060a12; color: var(--tx); border: 1px solid var(--line2); font-family: var(--mono, 'IBM Plex Mono', monospace); font-size: 13px; outline: none; transition: border-color .15s, box-shadow .15s; }
+.cbx input::placeholder { color: var(--tx3); }
+.cbx input:focus { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(61, 232, 207, 0.15); }
+.cbx button { height: 38px; padding: 0 16px; border-radius: 9px; font-weight: 600; background: var(--teal); color: #04120f; border: 0; cursor: pointer; }
+.cbx button:disabled { background: rgba(150, 180, 220, 0.08); color: var(--tx3); cursor: default; }
+.cbx .hint { font-size: 12px; color: var(--tx3); margin: 0; }
+.cbx .hint.ok { color: var(--teal); }

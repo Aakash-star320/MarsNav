@@ -35,13 +35,13 @@ function CoordBox() {
   };
   return (
     <div className="cbx">
-      <label>Start and destination (latitude, longitude)</label>
-      <div style={{ display: 'flex', gap: 6 }}>
+      <label>Type both points at once</label>
+      <div className="row">
         <input value={txt} placeholder="18.37, 77.435   18.41, 77.46" aria-label="Start and destination coordinates"
           onChange={(e) => { setTxt(e.target.value); setMsg(''); }} onKeyDown={(e) => { if (e.key === 'Enter') apply(); }} />
         <button onClick={apply} disabled={!pairs || pairs.length !== 2}>Set</button>
       </div>
-      {(msg || (txt.trim() && !pairs)) && <p className="nt">{msg || 'Not recognised yet: use two pairs, latitude first.'}</p>}
+      <p className={'hint' + (msg.startsWith('Start') ? ' ok' : '')}>{msg || (txt.trim() && !pairs ? 'Not recognised yet: two pairs, latitude first.' : 'Latitude, longitude for the start, then the destination. Commas or spaces both work.')}</p>
     </div>
   );
 }
