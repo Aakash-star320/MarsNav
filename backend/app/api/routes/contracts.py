@@ -1,4 +1,4 @@
-"""Schema-bearing endpoint skeletons. Domain owners replace 501s during the event."""
+"""Schema-bearing endpoint skeletons. Domain owners replace the 501 responses with real implementations."""
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, status
 from app.schemas import (

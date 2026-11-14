@@ -1,6 +1,6 @@
 # Dataset sources and verification status
 
-The initial connectors are adapters, not assertions that every product has a GeoTIFF or usable footprint. Before an event implementation selects a source, record its endpoint request/response sample, license/terms, coordinate semantics, product label, download URL and processing support in a connector test fixture.
+The initial connectors are adapters, not assertions that every product has a GeoTIFF or usable footprint. Before an implementation selects a source, record its endpoint request/response sample, license/terms, coordinate semantics, product label, download URL and processing support in a connector test fixture.
 
 | Source/family | Intended role | Status and handling |
 |---|---|---|
