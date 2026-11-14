@@ -18,6 +18,20 @@ function dispose(root: T.Object3D) {
     }
   });
 }
+/** Lowest valid elevation: the scene is drawn relative to it, so real (for example -2600 m) terrain sits near y = 0. */
+const demBase = (d: { values: (number | null)[] }) => {
+  let m = Infinity;
+  for (const v of d.values) if (v !== null && v < m) m = v;
+  return Number.isFinite(m) ? m : 0;
+};
+/** Default camera framing from the DEM's real size, so any area (not only the demo crater) is in view. */
+function homeView(d: Parameters<typeof gridXY>[0], exaggeration: number) {
+  const w = (d.width - 1) * Math.hypot(d.affine[1], d.affine[4]);
+  const h = (d.height - 1) * Math.hypot(d.affine[2], d.affine[5]);
+  const e = Math.max(w, h, 400) * 1.9;
+  const [cx, cy] = gridXY(d, (d.width - 1) / 2, (d.height - 1) / 2);
+  return { e, pos: [cx + 0.55 * e, 0.5 * e + 50 * exaggeration, -cy + 0.62 * e] as const, target: [cx, 50 * exaggeration, -cy] as const };
+}
 type SceneState = {
   scene: T.Scene;
   camera: T.PerspectiveCamera;
@@ -58,13 +72,15 @@ export function Terrain3D() {
     renderer.outputColorSpace = T.SRGBColorSpace;
     el.appendChild(renderer.domElement);
     const scene = new T.Scene();
-    const camera = new T.PerspectiveCamera(40, 1, 1, 30000);
-    camera.position.set(2700, 2700, 3000);
+    const home = homeView(d, s.exaggeration);
+    const base = demBase(d);
+    const camera = new T.PerspectiveCamera(40, 1, 1, Math.max(30000, home.e * 8));
+    camera.position.set(...home.pos);
     const controls = new OrbitControls(camera, renderer.domElement);
-    controls.target.set(0, 50, 0);
+    controls.target.set(...home.target);
     controls.enableDamping = true;
-    controls.minDistance = 180;
-    controls.maxDistance = 10000;
+    controls.minDistance = Math.min(180, home.e / 10);
+    controls.maxDistance = Math.max(10000, home.e * 4);
     controls.maxPolarAngle = Math.PI * 0.49;
     scene.add(new T.HemisphereLight("#e6e9ff", "#513524", 2.2));
     const sun = new T.DirectionalLight("#fff0d9", 2.4);
@@ -78,12 +94,12 @@ export function Terrain3D() {
       for (let c = 0; c < d.width; c++) {
         const [x, y] = gridXY(d, c, r);
         const h = d.values[r * d.width + c];
-        positions.push(x, (h ?? 0) * s.exaggeration, -y);
+        positions.push(x, ((h ?? base) - base) * s.exaggeration, -y);
         uvs.push(c / (d.width - 1), 1 - r / (d.height - 1));
         const color = new T.Color().setHSL(
           0.07,
           0.28,
-          0.28 + Math.max(0, h ?? 0) / 700,
+          0.28 + Math.max(0, (h ?? base) - base) / 700,
         );
         colors.push(color.r, color.g, color.b);
       }
@@ -299,7 +315,7 @@ export function Terrain3D() {
         return null;
       }
       const [x, y] = project(p, d.projection);
-      return new T.Vector3(x, h * s.exaggeration + lift, -y);
+      return new T.Vector3(x, (h - demBase(d)) * s.exaggeration + lift, -y);
     };
     const marker = (p: LonLat, color: string, r = 15, id?: string) => {
       const v = pos(p, 20);
@@ -436,8 +452,9 @@ export function Terrain3D() {
   useEffect(() => {
     const st = ref.current;
     if (st) {
-      st.camera.position.set(2700, 2700, 3000);
-      st.controls.target.set(0, 50, 0);
+      const home = s.dem ? homeView(s.dem, s.exaggeration) : null;
+      st.camera.position.set(...(home?.pos ?? [2700, 2700, 3000]));
+      st.controls.target.set(...(home?.target ?? [0, 50, 0]));
     }
   }, [s.focus]);
   useEffect(() => {
@@ -448,7 +465,7 @@ export function Terrain3D() {
       const h = heightAt(d, t.location);
       if (h !== null) {
         const [x, y] = project(t.location, d.projection);
-        st.controls.target.set(x, h * s.exaggeration, -y);
+        st.controls.target.set(x, (h - demBase(d)) * s.exaggeration, -y);
       }
     }
   }, [s.selectedTargetId, s.targets, s.dem, s.exaggeration]);

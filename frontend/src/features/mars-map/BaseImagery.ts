@@ -17,12 +17,45 @@ import {
 
 export * from "../../utils/trek";
 
+// Decoded Trek tiles are kept for the session, so revisiting a zoom level draws instantly.
+const loaded = new Map<string, HTMLImageElement>();
+const inflight = new Map<string, Promise<HTMLImageElement | null>>();
+
+function fetchTile(url: string): Promise<HTMLImageElement | null> {
+  const hit = loaded.get(url);
+  if (hit) return Promise.resolve(hit);
+  let p = inflight.get(url);
+  if (!p) {
+    p = new Promise<HTMLImageElement | null>((resolve) => {
+      const img = new Image();
+      img.onload = () => { loaded.set(url, img); inflight.delete(url); resolve(img); };
+      img.onerror = () => { inflight.delete(url); resolve(null); };   // not cached: a later view retries
+      img.src = url;
+    });
+    inflight.set(url, p);
+  }
+  return p;
+}
+
+let preloaded = false;
+/** Fetches the coarse levels (the whole planet, 42 small tiles) once, so zooming out always has something to show. */
+function preloadCoarseLevels(maxLevel = 2) {
+  if (preloaded) return;
+  preloaded = true;
+  for (let level = 0; level <= maxLevel; level++) {
+    trekTilesFor(level, -180, -90, 180, 90).forEach((t) => void fetchTile(trekUrl(t)));
+  }
+}
+
 /**
  * Leaflet layer for the map module's simple angular CRS (1 degree = 2^zoom pixels, latitude up).
- * Each map tile is composed from the Trek tiles that cover it. Tiles that fail to load stay empty,
- * so the map still works offline, just without imagery.
+ * Each map tile is composed from the Trek tiles that cover it. A tile is handed to Leaflet at once and drawn
+ * in passes: already-loaded coarser levels first (so a zoom never shows an empty tile), then the level
+ * that matches the zoom as its tiles arrive. Tiles that fail to load stay empty, so the map still works
+ * offline, just without imagery.
  */
 export function marsTrekLayer(opacity = 1): L.GridLayer {
+  preloadCoarseLevels();
   const Layer = L.GridLayer.extend({
     createTile(coords: L.Coords, done: L.DoneCallback) {
       const canvas = document.createElement("canvas");
@@ -30,36 +63,27 @@ export function marsTrekLayer(opacity = 1): L.GridLayer {
       const span = TREK_TILE / 2 ** coords.z; // degrees per map tile at this zoom
       const lng0 = coords.x * span;
       const lat1 = -coords.y * span;
-      const tiles = trekTilesFor(
-        trekLevelFor(2 ** coords.z),
-        lng0,
-        lat1 - span,
-        lng0 + span,
-        lat1,
-      );
       const ctx = canvas.getContext("2d");
-      if (!ctx || tiles.length === 0) {
-        setTimeout(() => done(undefined, canvas), 0);
-        return canvas;
-      }
-      let pending = tiles.length;
-      const finish = () => {
-        if (--pending === 0) done(undefined, canvas);
+      const finest = trekLevelFor(2 ** coords.z);
+      const area = [lng0, lat1 - span, lng0 + span, lat1] as const;
+      setTimeout(() => done(undefined, canvas), 0);
+      if (!ctx) return canvas;
+      ctx.imageSmoothingEnabled = true;
+      const paint = (t: ReturnType<typeof trekTilesFor>[number], img: HTMLImageElement) => {
+        const x0 = ((t.west - lng0) / span) * TREK_TILE;
+        const x1 = ((t.east - lng0) / span) * TREK_TILE;
+        const y0 = ((lat1 - t.north) / span) * TREK_TILE;
+        const y1 = ((lat1 - t.south) / span) * TREK_TILE;
+        ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
       };
-      tiles.forEach((t) => {
-        const img = new Image();
-        img.onload = () => {
-          const x0 = ((t.west - lng0) / span) * TREK_TILE;
-          const x1 = ((t.east - lng0) / span) * TREK_TILE;
-          const y0 = ((lat1 - t.north) / span) * TREK_TILE;
-          const y1 = ((lat1 - t.south) / span) * TREK_TILE;
-          ctx.imageSmoothingEnabled = true;
-          ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
-          finish();
-        };
-        img.onerror = finish;
-        img.src = trekUrl(t);
-      });
+      // Coarse to fine: whatever is already loaded is painted straight away.
+      for (let level = 0; level <= finest; level++) {
+        for (const t of trekTilesFor(level, ...area)) {
+          const img = loaded.get(trekUrl(t));
+          if (img) paint(t, img);
+          else if (level === finest) void fetchTile(trekUrl(t)).then((i) => i && paint(t, i));
+        }
+      }
       return canvas;
     },
   });
@@ -68,7 +92,8 @@ export function marsTrekLayer(opacity = 1): L.GridLayer {
     opacity,
     attribution: TREK_ATTRIBUTION,
     noWrap: true,
-    updateWhenZooming: false,
-    keepBuffer: 2,
+    updateWhenZooming: true,
+    updateInterval: 60,
+    keepBuffer: 3,
   });
 }

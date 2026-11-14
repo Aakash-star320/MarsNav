@@ -8,6 +8,7 @@ import type { BoundingBox } from '../../types/contracts';
 import { elevation, fmtCoord, lonLatToPx, pxToLonLat, slopeAt } from '../../utils/geo';
 import { marsTrekLayer } from '../mars-map/BaseImagery';
 import { combined, segsOf } from '../../utils/derive';
+import { setViewport } from '../../utils/viewport';
 
 /**
  * The dashboard map: a real, zoomable and pannable Leaflet map (NASA Mars Trek imagery) with the planning
@@ -43,18 +44,41 @@ const GridLayer = memo(function GridLayer({ id, op, slope }: { id: 'elev' | 'slo
 const RealRaster = memo(function RealRaster({ href, bounds, op }: { href: string; bounds: BoundingBox; op: number }) {
   const a = lonLatToPx({ latitude_deg: bounds.north_deg, longitude_deg_east: bounds.west_deg_east });
   const b = lonLatToPx({ latitude_deg: bounds.south_deg, longitude_deg_east: bounds.east_deg_east });
-  return <image href={href} x={a.x} y={a.y} width={b.x - a.x} height={b.y - a.y} opacity={op} preserveAspectRatio="none" style={{ imageRendering: 'pixelated' }} />;
+  return <image href={href} crossOrigin="anonymous" x={a.x} y={a.y} width={b.x - a.x} height={b.y - a.y} opacity={op} preserveAspectRatio="none" style={{ imageRendering: 'pixelated' }} />;
 });
 
 /** Draws children in screen pixels at a canvas position, so markers keep their size while the map zooms. */
 function Pin({ p, k, children }: { p: Pt; k: View; children: ReactNode }) {
   return <g transform={`translate(${p.x} ${p.y}) scale(${1 / k.a} ${1 / k.d})`}>{children}</g>;
 }
-const Label = ({ text, fill = '#fff' }: { text: string; fill?: string }) => (
-  <text x={11} y={4} fill={fill} fontSize={12} fontWeight={600} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">{text}</text>
-);
 const pts = (p: Pt[]) => p.map((q) => `${q.x},${q.y}`).join(' ');
 const NS = 'non-scaling-stroke';
+const PIN = 'M0 0C-4-9-13-15-13-25a13 13 0 1 1 26 0c0 10-9 16-13 25z';
+
+/** Google-Maps-style teardrop marker whose tip sits on the location, with an optional name tag. */
+function Marker({ p, k, color, glyph, label, size = 1, onClick, hot }: { p: Pt; k: View; color: string; glyph?: string; label?: string; size?: number; onClick?: () => void; hot?: boolean }) {
+  return (
+    <Pin p={p} k={k}>
+      <g transform={`scale(${size})`} style={onClick ? { cursor: 'pointer', pointerEvents: 'all' } : undefined} onClick={onClick}>
+        <ellipse cy={1} rx={7} ry={2.8} fill="#000" opacity={0.35} />
+        <path d={PIN} fill={color} stroke={hot ? '#ffd166' : '#fff'} strokeWidth={hot ? 3 : 2} />
+        <circle cy={-25} r={glyph ? 8.5 : 5} fill={glyph ? 'none' : '#fff'} />
+        {glyph && <text y={-20.5} textAnchor="middle" fill="#fff" fontSize={13} fontWeight={700}>{glyph}</text>}
+      </g>
+      {label && <Tag text={label} x={16 * size} y={-27 * size} />}
+    </Pin>
+  );
+}
+/** White name tag, like a map label. */
+function Tag({ text, x, y }: { text: string; x: number; y: number }) {
+  const w = text.length * 6.6 + 14;
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <rect x={0} y={-11} width={w} height={22} rx={6} fill="#fff" stroke="#00000022" />
+      <text x={7} y={4} fill="#1f2937" fontSize={12} fontWeight={600}>{text}</text>
+    </g>
+  );
+}
 
 export default function MapCanvas() {
   const s = useStore();
@@ -85,7 +109,9 @@ export default function MapCanvas() {
     mapRef.current = m;
     L.control.zoom({ position: 'bottomright' }).addTo(m);
     m.attributionControl.setPrefix(false);
-    m.fitBounds([toLatLng({ x: 0, y: H }), toLatLng({ x: W, y: 0 })], { padding: [0, 0] });
+    // Start wide: the imagery is 232 m/px, so fitting the 16 x 10 km frame would stretch it about 12x and look
+    // blurry. At zoom 9 it is shown at about 3x, and "Fit" still zooms in to the planning frame.
+    m.setView(toLatLng({ x: W / 2, y: H / 2 }), 9);
 
     let raf = 0;
     const sync = () => {
@@ -93,7 +119,9 @@ export default function MapCanvas() {
       const size = m.getSize();
       const at = (p: Pt) => m.latLngToContainerPoint(toLatLng(p));
       const p0 = at({ x: 0, y: 0 }), p1 = at({ x: W, y: H });
-      setK({ w: size.x, h: size.y, a: (p1.x - p0.x) / W, d: (p1.y - p0.y) / H, e: p0.x, f: p0.y });
+      const a = (p1.x - p0.x) / W, d = (p1.y - p0.y) / H;
+      setK({ w: size.x, h: size.y, a, d, e: p0.x, f: p0.y });
+      setViewport({ x: -p0.x / a, y: -p0.y / d, w: size.x / a, h: size.y / d });   // what 3D reads when no analysis exists yet
     };
     const queue = () => { if (!raf) raf = requestAnimationFrame(sync); };
     m.on('move zoom resize', queue);
@@ -168,6 +196,8 @@ export default function MapCanvas() {
               <rect x={cov.x} y={cov.y} width={cov.w} height={cov.h} fill="#2dd4d0" />
             </g>
           )}
+          <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.5} strokeDasharray="2 6" vectorEffect={NS} />
+          {k.a * W > 420 && <Pin p={{ x: 0, y: 0 }} k={k}><text x={6} y={16} fill="#fff" fillOpacity={0.8} fontSize={11} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">Planning area · 16 × 10 km (routes are simulated inside it)</text></Pin>}
           {s.region && <rect x={s.region.x} y={s.region.y} width={s.region.w} height={s.region.h} fill="none" stroke="#2dd4d0" strokeWidth={2} strokeDasharray="8 4" vectorEffect={NS} />}
           {s.obs.map((o, i) => (
             <g key={i}>
@@ -180,19 +210,14 @@ export default function MapCanvas() {
           {segs.map((x, i) => <polyline key={i} points={pts(x.s.p)} fill="none" stroke={x.c} strokeWidth={x.dashed ? 3 : 5} strokeDasharray={x.dashed ? '9 5' : undefined} strokeLinecap="round" vectorEffect={NS} />)}
           {s.targets.map((t) => {
             const o = s.mission?.feasible ? s.mission.legs.findIndex((l) => l.t === t) : -1;
-            return (
-              <Pin key={t.id} p={t} k={k}>
-                <rect x={-6} y={-6} width={12} height={12} fill={s.selT === t.id ? '#fff' : '#c0653a'} stroke="#fff" transform="rotate(45)" style={{ cursor: 'pointer', pointerEvents: 'all' }} onClick={() => s.selectTarget(t.id)} />
-                <Label text={o >= 0 ? `${o + 1}. ${t.id}` : t.id} fill="#f3d9c8" />
-              </Pin>
-            );
+            return <Marker key={t.id} p={t} k={k} color="#8b5cf6" glyph={o >= 0 ? String(o + 1) : '★'} label={t.label ?? t.id} hot={s.selT === t.id} onClick={() => s.selectTarget(t.id)} />;
           })}
-          {s.wps.map((w, i) => <Pin key={i} p={w} k={k}><circle r={6} fill="#e8aa3c" stroke="#fff" /><Label text={`WP${i + 1}`} /></Pin>)}
-          <Pin p={s.base} k={k}><rect x={-7} y={-7} width={14} height={14} fill="#fff" /><Label text="Base" /></Pin>
-          {s.start && <Pin p={s.start} k={k}><circle r={7} fill="#2dd4d0" stroke="#fff" strokeWidth={2} /><Label text="Start" /></Pin>}
-          {s.dest && <Pin p={s.dest} k={k}><circle r={10} fill="none" stroke="#2dd4d0" strokeWidth={3} /><Label text="Destination" /></Pin>}
+          {s.wps.map((w, i) => <Marker key={i} p={w} k={k} color="#f59e0b" glyph={String(i + 1)} size={0.8} />)}
+          <Marker p={s.base} k={k} color="#2563eb" glyph="⌂" label="Base" />
+          {s.start && <Marker p={s.start} k={k} color="#16a34a" glyph="A" label="Start" />}
+          {s.dest && <Marker p={s.dest} k={k} color="#dc2626" glyph="B" label="Destination" />}
           {s.focus && <Pin p={s.focus} k={k}><circle r={22} fill="#e8aa3c33" stroke="#e8aa3c" strokeWidth={2} /></Pin>}
-          {navP && <Pin p={navP} k={k}><circle r={8} fill="#fff" stroke="#2dd4d0" strokeWidth={3} /><text x={12} y={-8} fill="#fff" fontSize={12} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">Simulated astronaut</text></Pin>}
+          {navP && <Pin p={navP} k={k}><circle r={16} fill="#4285f4" opacity={0.22} /><circle r={8} fill="#4285f4" stroke="#fff" strokeWidth={3} /><Tag text="Simulated astronaut" x={14} y={-14} /></Pin>}
           {rubber && <rect x={Math.min(rubber.a.x, rubber.b.x)} y={Math.min(rubber.a.y, rubber.b.y)} width={Math.abs(rubber.b.x - rubber.a.x)} height={Math.abs(rubber.b.y - rubber.a.y)} fill="#2dd4d022" stroke="#2dd4d0" strokeDasharray="6 3" vectorEffect={NS} />}
         </g>
       </svg>

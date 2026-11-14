@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useEffect } from 'react';
 import { useStore } from '../../store/dashboardStore';
 import { useMissionStore } from '../../store/missionStore';
 import { combined } from '../../utils/derive';
@@ -113,16 +113,32 @@ function AssistantDrawer() {
 
 export default function MapWorkspace() {
   const view = useMissionStore((m) => m.view);
+  const hasTerrain = useMissionStore((m) => !!m.dem);
+  const { real, job, err, analyzeTerrainView } = useStore();
+  const is3d = view === '3d';
+  // Entering 3D reads the real elevation for the area on screen (or the selected region) by itself.
+  useEffect(() => { if (is3d && !real) analyzeTerrainView(); }, [is3d]);
   return (
     <div id="mw">
-      {view === '3d' ? (
+      {/* The 2D map stays mounted (hidden) in 3D, so its zoom and position are kept when you come back. */}
+      <div className="v2d" style={{ display: is3d ? 'none' : undefined }}>
+        <Banner />
+        <MapCanvas />
+      </div>
+      {is3d && (real && hasTerrain ? (
         <Suspense fallback={<div className="ov" id="bn">Loading the 3D terrain…</div>}><div className="v3d"><Terrain3D /></div></Suspense>
       ) : (
-        <>
-          <Banner />
-          <MapCanvas />
-        </>
-      )}
+        <div className="v3d"><div className="empty3d">
+          {!job && <>
+          <span>△</span>
+          <h2>{job ? 'Reading real terrain…' : err ? '3D terrain could not be loaded' : 'The 3D view needs real terrain'}</h2>
+          <p>{job ? 'Reading the real elevation (USGS MOLA) for the area on the map. The 3D surface appears here in a moment.'
+            : err ? err : 'Real elevation for this area has not been read yet.'}</p>
+          {!job && <button className="pri inline" onClick={analyzeTerrainView}>{err ? 'Try again' : 'Load 3D terrain'}</button>}
+          <button onClick={() => useMissionStore.getState().setView('2d')}>Back to 2D map</button>
+          </>}
+        </div></div>
+      ))}
       <Legend />
       <JobOverlay />
       <NavHud />

@@ -3,6 +3,7 @@ import type { DataState, Mode, PanelKey, Pick, Pt, Region, Tab, Target } from '.
 import { STAGES, discoverTargets, planMission, planRoutes } from '../mocks/mock';
 import { combined } from '../utils/derive';
 import { useMissionStore } from './missionStore';
+import { autoTerrainRegion, getViewport } from '../utils/viewport';
 import { API_BASE, AnalysisError, cancelAnalysis, createAnalysis, fetchMapPackage, waitForAnalysis } from '../api/analysis';
 import { regionToBounds, toDashboardTarget } from '../api/mapping';
 import { KM_PER_PX } from '../utils/geo';
@@ -18,6 +19,8 @@ export interface Actions {
   setRegion: (r: Region | null) => void;
   useVisibleMap: () => void;
   analyze: () => void;
+  /** Reads real elevation for the selected region, or for the area on screen, so the 3D view works without a manual analysis. */
+  analyzeTerrainView: () => void;
   generate: () => void;
   plan: () => void;
   reset: () => void;
@@ -106,12 +109,12 @@ export const useStore = create<Store>((set, get) => {
 
   const BACKEND_STAGE: Record<string, number> = { queued: 0, discovery: 0, selection: 1, downloading: 2, preprocessing: 3, terrain: 4, science: 5 };
 
-  const runRealAnalysis = async (region: Region) => {
+  const runRealAnalysis = async (region: Region, terrainOnly = false) => {
     const token = ++realRunToken;
     const alive = () => token === realRunToken;
-    const spec = get().cats.spec;
+    const spec = !terrainOnly && get().cats.spec;
     const stages = ['Plan region', 'Select products', 'Read elevation', 'Validate', 'Derive terrain', ...(spec ? ['Search CRISM'] : []), 'Complete'];
-    set({ job: { title: 'Analyze Region', stages, i: 0, real: true }, err: '' });
+    set({ job: { title: terrainOnly ? 'Reading terrain' : 'Analyze Region', stages, i: 0, real: true }, err: '' });
     try {
       const created = await createAnalysis(regionToBounds(region), spec ? 'find hydrated minerals' : 'terrain overview', 'Dashboard region');
       if (!alive()) { void cancelAnalysis(created.id).catch(() => undefined); return; }
@@ -138,8 +141,12 @@ export const useStore = create<Store>((set, get) => {
         layers: { ...s.layers, elev: { ...s.layers.elev, on: true }, ...(sci ? { spec: { ...s.layers.spec, on: true } } : {}) },
       }));
       try {                                   // the 3D view reads the same real terrain
-        useMissionStore.getState().setLayers(pkg.layers);
-        useMissionStore.setState({ dem: pkg.dem ?? undefined, focus: Date.now() });
+        const ms = useMissionStore.getState();
+        ms.setLayers(pkg.layers);
+        if (el) ms.setLayerVisibility(el.layer.id, true);
+        // Low-relief areas look flat at true scale, so exaggerate the height to show the shape (the 3D view says how much).
+        const relief = Math.max(1, (stats.elevation_max_m ?? 0) - (stats.elevation_min_m ?? 0)), width = Math.max(region.w, region.h) * KM_PER_PX * 1000;
+        useMissionStore.setState({ dem: pkg.dem ?? undefined, focus: Date.now(), exaggeration: Math.max(1, Math.min(10, Math.round((0.12 * width) / relief))) });
       } catch (e3d) { console.warn('[analysis] 3D terrain not loaded:', (e3d as Error).message); }
       openPanels(true, false);
     } catch (e) {
@@ -195,6 +202,19 @@ export const useStore = create<Store>((set, get) => {
       if (s.job) return;
       if (!s.online) { set({ err: 'You are offline. Region analysis reads real data from NASA/USGS sources and needs network access.' }); return; }
       void runRealAnalysis(s.region);
+    },
+    analyzeTerrainView: () => {
+      const s = get();
+      if (s.job || s.real) return;
+      if (!s.online) { set({ err: 'You are offline. The 3D terrain reads real elevation from USGS and needs network access.' }); return; }
+      let region = s.region;
+      if (!region) {
+        const v = getViewport();
+        if (!v) return;
+        region = autoTerrainRegion(v);
+        set({ region, pick: null });
+      }
+      void runRealAnalysis(region, true);
     },
     generate: () => {
       const s = get();
@@ -290,7 +310,11 @@ export const useStore = create<Store>((set, get) => {
     mapPick: (p) => {
       const s = get(), k = s.pick;
       if (!k || k === 'region') return;
-      set({ pick: null });
+      if (p.x < 0 || p.y < 0 || p.x > 800 || p.y > 500) {
+        set({ err: 'That point is outside the planning area (the dashed frame, 16 × 10 km). Simulated routes only exist inside it; click inside the frame, or press Fit to see it.' });
+        return;
+      }
+      set({ pick: null, err: '' });
       if (k === 'wp') { set({ wps: [...s.wps, p] }); clearResults(); }
       else if (k === 'obs') {
         set({ obs: [...s.obs, { x: p.x, y: p.y, r: 35 }] });
