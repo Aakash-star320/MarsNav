@@ -5,40 +5,39 @@ import { warningsOf } from '../../utils/derive';
 import ElevationChart from '../routing/ElevationChart';
 
 const TABS: [Tab, string][] = [['elev', 'Elevation profile'], ['slope', 'Slope profile'], ['warn', 'Warnings'], ['data', 'Data coverage'], ['off', 'Offline data']];
-const COLLAPSED = 36;
+const COLLAPSED = 58;
 
 function DataTab() {
+  const real = useStore((st) => st.real);
+  const cell = real ? `${Math.round(real.stats.cell_size_x_m)} × ${Math.round(real.stats.cell_size_y_m)} m cells` : '463 m cells';
   const rows = [
-    ['Optical mosaic', 'HiRISE/CTX-class', 'Imagery', '~1 m', '100%', 'historical', 'cached'],
-    ['Elevation model', 'MOLA/HRSC-class', 'Topography', '~20 m (grid)', '100%', 'historical', 'cached'],
-    ['Spectral cube', 'CRISM-class', 'Mineral', '~18 m', '62%', 'historical', 'partial'],
-    ['Thermal inertia', 'THEMIS-class', 'Thermal', 'coarse', '100%', 'historical', 'not downloaded'],
+    ['Optical imagery', 'Viking MDIM 2.1 colour mosaic (NASA Mars Trek)', 'Context only', '232 m/px', 'Global', 'Used as the base map'],
+    ['Elevation, slope, roughness', 'MOLA global DEM (USGS)', 'Topography', cell, real ? '100% of this area' : 'Global', 'Routing and 3D use this'],
+    ['Mineral evidence', 'CRISM MTRDR summary parameters (PDS)', 'Spectral screen', '18 to 36 m/px', 'Only where CRISM observed', 'Heuristic, not an identification'],
   ];
   return (
     <>
       <table>
-        <thead><tr><th>Product (demo)</th><th>Instrument</th><th>Type</th><th>Resolution</th><th>Coverage</th><th>Date</th><th>Cache</th></tr></thead>
+        <thead><tr><th>Layer</th><th>Source</th><th>Kind</th><th>Resolution</th><th>Coverage</th><th>Use</th></tr></thead>
         <tbody>{rows.map((r) => <tr key={r[0]}>{r.map((x, i) => <td key={i}>{x}</td>)}</tr>)}</tbody>
       </table>
-      <p className="nt">Demo metadata. Real values (product IDs, last checked) must come from the backend. Roughness is unavailable until the backend supplies it. Resampling does not create new measurements.</p>
+      <p className="nt">These are the data sources MarsNav reads when you analyse a region. Missing coverage is never treated as an absence of minerals or as safe terrain. Features smaller than one cell (boulders, small craters) cannot be seen in 463 m terrain.</p>
     </>
   );
 }
 
 function OfflineTab() {
-  const { pk, addPackage, removePackage } = useStore();
+  const budget = useStore((st) => st.dataBudget);
   return (
     <>
       <table>
-        <thead><tr><th>Package</th><th>Size</th><th>Status</th><th>Updated</th><th /></tr></thead>
-        <tbody>{pk.map((p, i) => <tr key={i}><td>{p.n}</td><td>{p.sz}</td><td>{p.st}</td><td>{p.up}</td><td><button onClick={() => removePackage(i)}>Remove</button></td></tr>)}</tbody>
+        <thead><tr><th>What is saved on this computer</th><th>What needs the internet</th></tr></thead>
+        <tbody><tr>
+          <td>Finished analyses (terrain and results) are stored on disk and reused for the same area, even after a restart. Routes and mission plans are kept only while the backend runs.</td>
+          <td>Reading new elevation, imagery tiles and CRISM data; the hosted AI model; the NASA catalog check.</td>
+        </tr></tbody>
       </table>
-      <button style={{ margin: '6px 0' }} onClick={addPackage}>Prepare mission package for current region</button>
-      <table>
-        <thead><tr><th>Works offline (with package)</th><th>Needs internet</th></tr></thead>
-        <tbody><tr><td>Map browsing of downloaded tiles · Manual route planning · Saved targets and layers</td><td>AI assistant (hosted Gemma) · New dataset discovery and download · Refresh packages</td></tr></tbody>
-      </table>
-      <p className="nt">Offline support shown here is a demo; verify before claiming it works offline.</p>
+      <p className="nt">There is no download manager or offline map package yet. {budget ? `Data read this session: ${(budget.session_used_bytes / 1048576).toFixed(1)} MB of ${Math.round(budget.session_cap_bytes / 1048576)} MB.` : ''}</p>
     </>
   );
 }

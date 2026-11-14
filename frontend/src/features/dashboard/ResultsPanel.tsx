@@ -26,7 +26,7 @@ function RealSummary() {
         </div>
         <p>Elevation: USGS MOLA 463 m global DEM; the percentage counts {st.slope_exceedance_cells.toLocaleString()} of {st.slope_denominator_cells.toLocaleString()} cells that have a defined slope. Coarse data supports broad planning only and is not a safety assessment.</p>
       </div>
-      {real.warnings.map((w) => <p key={w} className="nt wn">{w}</p>)}
+      {real.warnings.length > 0 && <details className="notes-box" open><summary>Notes and limits ({real.warnings.length})</summary>{real.warnings.map((w) => <p key={w} className="nt wn">{w}</p>)}</details>}
     </>
   );
 }
@@ -77,7 +77,7 @@ function RouteCards() {
           </div>
         );
       }) : <p className="nt">No routes yet. Set Start and Destination, then press Generate Routes.</p>}
-      {routes.length > 0 && routeNotes.length > 0 && <div className="rnotes">{routeNotes.map((n, i) => <p key={i} className="nt">{n}</p>)}</div>}
+      {routes.length > 0 && routeNotes.length > 0 && <details className="notes-box"><summary>Notes and limits ({routeNotes.length})</summary>{routeNotes.map((n, i) => <p key={i} className="nt">{n}</p>)}</details>}
       <span hidden>{res}</span>
     </>
   );

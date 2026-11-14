@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react';
+import { lazy, Suspense, useEffect, useState } from 'react';
 import { useStore } from '../../store/dashboardStore';
 import { useMissionStore } from '../../store/missionStore';
 import { combined } from '../../utils/derive';
@@ -33,14 +33,25 @@ function Banner() {
 }
 
 function Legend() {
-  const { layers, slope, real, routeSource, routes, mode, missionSource, mission } = useStore();
+  const { layers, slope, real, routeSource, routes, mode } = useStore();
+  const [open, setOpen] = useState(false);
   const realRoutes = routeSource === 'real' && routes.length > 0 && mode === 'route';
-  const realMission = missionSource === 'real' && !!mission && mode === 'mission';
   const items = LAYERS.filter((l) => layers[l.id].on).map((l) => (l.id === 'haz' ? `Red cells: slope > ${slope}°` : (real && REAL_LEGEND[l.id]) || LEGEND[l.id])).filter(Boolean);
+  const cell = real ? `${Math.round(real.stats.cell_size_y_m)} m cells` : 'simulated layers';
   return (
-    <div className="ov" id="lg"><b>Legend</b> {items.join(' · ') || 'No layers on'}<br />
-      <span style={{ color: '#f0b254' }}>{real ? `Elevation, slope, steep-terrain and spectral layers are real analysis (463 m terrain). ${realMission ? 'The mission follows that real terrain; routes are simulated.' : realRoutes ? 'Routes follow that real terrain; missions are simulated.' : 'Routes and missions are simulated.'}` : 'Routes, targets and terrain layers are simulated.'}</span><br />
-      <span style={{ color: '#b4c1d8' }}>Solid = outbound · dashed = return · ◆ target · dotted = previous</span>
+    <div className="lgdock">
+      {open ? (
+        <div className="ov lgcard" id="lg">
+          <button className="lgx" onClick={() => setOpen(false)} aria-label="Close legend">×</button>
+          <b>Legend</b>
+          <span className="lgkey">{items.join(' · ') || 'No layers on'}</span>
+          <span className="lgwarn">{real ? `Elevation, slope, steep-terrain and spectral layers are real analysis (463 m terrain). ${realRoutes ? 'Routes follow that real terrain; missions are simulated.' : 'Routes and missions are simulated.'}` : 'Routes, targets and terrain layers are simulated.'}</span>
+          <span className="lgkey">Solid = outbound · dashed = return · ◆ target · dotted = previous</span>
+        </div>
+      ) : (
+        <button className="ov lgpill" onClick={() => setOpen(true)} aria-label="Open legend"><i className="dot" />Legend</button>
+      )}
+      <span className="ov lgres" title="Terrain resolution: features smaller than a cell, such as boulders and small craters, cannot be seen">{cell}</span>
     </div>
   );
 }

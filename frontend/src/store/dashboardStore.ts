@@ -62,7 +62,7 @@ export interface Actions {
   mapPick: (p: Pt) => void;
   togglePanel: (k: PanelKey) => void;
   setPanelHeight: (h: number) => void;
-  openPanels: (right: boolean, bottom: boolean) => void;
+  openPanels: (right: boolean, bottom: boolean, force?: boolean) => void;
   addPackage: () => void;
   removePackage: (i: number) => void;
 }
@@ -82,14 +82,15 @@ const initial: DataState = {
   obs: [], prev: null, nav: null, tab: 'elev', focus: null, online: true, cache: false,
   job: null, err: '', stale: false, selT: null, real: null,
   pk: [{ n: 'Jezero region package (demo)', sz: '148 MB', st: 'Downloaded', up: '2026-11-12' }],
-  pan: { L: true, R: false, B: false }, bh: 260, adv: false, lyOpen: false,
+  pan: { L: true, R: false, B: false }, bh: 220, adv: false, lyOpen: false,
   layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '', aiBar: null, focusZoom: null, assistantMode: null, assistantModel: null, pendingQ: null, objectives: FALLBACK_OBJECTIVES, dataBudget: null, routeSource: 'simulated', missionSource: 'simulated', routeNotes: [], guideText: null,
 };
 
 export const useStore = create<Store>((set, get) => {
-  const openPanels = (right: boolean, bottom: boolean) => {
+  // While the chat is open the Results panel stays tucked away (the map keeps its width) unless the user asks for it (force).
+  const openPanels = (right: boolean, bottom: boolean, force = false) => {
     const p = get().pan;
-    set({ pan: { ...p, R: p.R || right, B: p.B || bottom } });
+    set({ pan: { ...p, R: p.R || (right && (force || !get().aiOpen)), B: p.B || bottom } });
   };
 
   const clearResults = () => {
@@ -475,7 +476,8 @@ export const useStore = create<Store>((set, get) => {
     focusWarning: (at) => { if (at) set({ focus: at, focusZoom: null }); },
     setFocus: (p) => set({ focus: p, focusZoom: null }),
     toggleOnline: () => set((s) => ({ online: !s.online })),
-    toggleAi: () => { set((s) => ({ aiOpen: !s.aiOpen, aiBar: null })); if (get().aiOpen) get().refreshAssistant(); },
+    // Opening the chat tucks the Results panel away so the map keeps its width; the chat's answers offer "Open full details".
+    toggleAi: () => { set((s) => ({ aiOpen: !s.aiOpen, aiBar: null, ...(!s.aiOpen ? { pan: { ...s.pan, R: false } } : {}) })); if (get().aiOpen) get().refreshAssistant(); },
     clearChat: () => set({ chat: [], aiDraft: '', aiBar: null, pendingQ: null }),
     loadObjectives: () => { void fetchObjectives().then((list) => set({ objectives: list })); },
     refreshDataBudget: () => { fetchDataBudget().then((b) => set({ dataBudget: b })).catch(() => set({ dataBudget: null })); },
@@ -486,7 +488,7 @@ export const useStore = create<Store>((set, get) => {
         .catch(() => set({ assistantMode: 'rule_based', assistantModel: null }));
     },
     /** Collapses the chat to a small bar and brings the item into view on the map. */
-    showOnMap: (a) => a.open ? openPanels(true, false) : a.at && set((s) => ({ focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
+    showOnMap: (a) => a.open ? openPanels(true, false, true) : a.at && set((s) => ({ focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
     setAiDraft: (v) => set({ aiDraft: v }),
 
     navStart: () => {
