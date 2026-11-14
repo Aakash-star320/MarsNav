@@ -3,6 +3,7 @@ import * as L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import { useMissionStore as store } from "../../store/missionStore";
 import { latLng, validateBounds } from "./geometry";
+import { marsTrekLayer } from "./BaseImagery";
 import type { BoundingBox, LonLat } from "../../types/contracts";
 const crs: L.CRS = {
   ...L.CRS.Simple,
@@ -38,9 +39,8 @@ export function Map2D() {
     });
     map.current = m;
     L.control.zoom({ position: "bottomright" }).addTo(m);
-    m.attributionControl.addAttribution(
-      "Mars angular display • synthetic local fixtures",
-    );
+    m.attributionControl.addAttribution("Mars angular display");
+    marsTrekLayer().addTo(m);
     const click = (e: L.LeafletMouseEvent) =>
       store
         .getState()

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Callable
 from uuid import UUID, uuid4
 
+from app.analyzer.preprocessing.terrain_bundle import TerrainBundleError, TerrainManifest, load_terrain_bundle
 from app.analyzer.validation.cache_keys import analysis_result_key, stable_hash
 from app.schemas import AnalysisJob, CreateAnalysisRequest, JobStage, RegionalAnalysisResult
 
@@ -99,12 +100,32 @@ class AnalysisService:
         with self._lock:
             return self._jobs.get(job_id)
 
+    def latest_for_mission(self, mission_id: UUID, completed_only: bool = False) -> AnalysisJob | None:
+        """Most recently created analysis for a mission (optionally only finished ones)."""
+        with self._lock:
+            jobs = [j for j in self._jobs.values() if j.mission_id == mission_id and (not completed_only or j.stage == JobStage.completed)]
+        return max(jobs, key=lambda j: j.created_at, default=None)
+
     def get_result(self, job_id: UUID) -> RegionalAnalysisResult | None:
         path = self._deps.out_dir / str(job_id) / "result.json"
         job = self.get_job(job_id)
         if job is None or job.stage != JobStage.completed or not path.is_file():
             return None
         return RegionalAnalysisResult.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def load_terrain(self, job_id: UUID):
+        """Verified terrain arrays of a completed analysis, or None (unknown, unfinished, missing or corrupt)."""
+        job = self.get_job(job_id)
+        path = self._deps.out_dir / str(job_id) / "terrain.manifest.json"
+        if job is None or job.stage != JobStage.completed or not path.is_file():
+            return None
+        try:
+            return load_terrain_bundle(path)
+        except (TerrainBundleError, ValueError):
+            return None
+
+    def terrain_file(self, job_id: UUID) -> Path:
+        return self._deps.out_dir / str(job_id) / "terrain.npz"
 
     def wait_idle(self) -> None:
         """Block until queued work finishes (used by tests and graceful shutdown)."""

@@ -33,3 +33,26 @@ Each array is exposed as a `ProcessedLayer` (`kind` = `elevation`, `slope`, `rou
 - Check `valid` before reading `elevation_m`; treat `NaN` as unknown, not zero or flat.
 - Never read coarse-source cells as evidence of astronaut-scale safety; `quality_flags` bit 0 marks them.
 - Verify the checksum before use; reject a bundle whose array shapes disagree with `manifest.shape`.
+
+## Map display package (analyzer → 2D/3D map)
+
+`GET /api/v1/analyses/{id}/map` returns a `MapPackage` (`app/schemas/map_display.py`, mirrored by `frontend/src/features/mars-map/types.ts`): `layers` (`MapLayerEntry`: a `ProcessedLayer` plus display metadata) and `dem` (`DemPayload`). `GET /api/v1/analyses/{id}/layers/{elevation|slope|roughness}.png` serves each layer image.
+
+- Images are plate-carrée RGBA PNGs in the canonical angular display projection (`MARS:CANONICAL_ANGULAR`). Invalid cells are fully transparent, never coloured as zero. The terrain grid is already regular in longitude and latitude, so no resampling happens.
+- `dem.bounds` is the extent of the **sample points** (cell centres, point registration). Every layer's `bounds` equals `dem.bounds` exactly, because the 3D view rejects overlays whose bounds differ. Images are therefore draped over a footprint half a source cell smaller than the cell edges.
+- The DEM affine is `[x0, dx_col, dx_row, y0, dy_col, dy_row]` in local metres about the grid centre on the 3,396,190 m source sphere (`x = R cos(lat0)(lon - lon0)`, `y = R (lat - lat0)`); `dy_row` is negative because rows run north to south.
+- Grids larger than 257 cells on a side are decimated by an integer stride for display only (`style_hint.stride` and a note say so). Analysis keeps the full-resolution bundle.
+- Colour scales: slope uses a fixed 0-35 degree scale; elevation and roughness use the 2nd to 98th percentile of valid cells. The legend text states the actual range and the data source.
+- `vertical_datum` is reported as not stated, because the source file header does not state it.
+
+## Routing access
+
+In the same app, routing loads terrain with `load_routing_terrain(service, analysis_id, analysis_version)` (`app/analyzer/integration/routing_terrain.py`), where `service` is `app.api.routes.analyses.get_service()`. It returns a frozen `RoutingTerrain` with the six arrays, `grid`, `bounds`, `sources`, `limitations`, `sha256`, `analysis_version` and `terrain_version`, and these helpers:
+
+- `lonlat_to_cell(LonLat) -> (row, col) | None` (None outside the grid), `cell_center_lonlat(row, col)`, `cell_center_xy(row, col)`.
+- `lonlat_to_xy(LonLat)` and `xy_to_lonlat(x, y)` for the local metric frame (x east, y north, origin at the centre of `bounds`).
+- `is_usable(row, col)`, which is the `valid` mask.
+
+Failures raise `TerrainAccessError` with `code` = `not_found`, `not_ready`, `version_mismatch` (the `RouteRequest.analysis_version` differs from the analysis's) or `unavailable` (artifact missing or failed checksum). The arrays are verified (checksum, dtypes, shapes, mask consistency) before they are returned.
+
+Outside the app, `GET /api/v1/analyses/{id}/terrain.npz?analysis_version=...` returns the same `.npz` with headers `X-Terrain-Sha256`, `X-Analysis-Version` and `X-Terrain-Version`; errors use 404 (`not_found`, `unavailable`) and 409 (`not_ready`, `version_mismatch`) with `{error_code, message}`.

@@ -5,7 +5,7 @@ import { LAYERS } from '../../utils/layers';
 import MapCanvas from './MapCanvas';
 
 const LEGEND: Record<string, string> = {
-  opt: 'Optical', elev: 'Elevation: blue low → white high', slope: 'Slope: green gentle → red steep',
+  opt: 'Real imagery: NASA Mars Trek (Viking, 232 m)', elev: 'Simulated elevation: blue low → white high', slope: 'Simulated slope: green gentle → red steep',
   therm: 'Thermal (orange)', cov: 'Coverage: teal detailed · amber moderate · grey coarse',
 };
 
@@ -30,7 +30,8 @@ function Legend() {
   const items = LAYERS.filter((l) => layers[l.id].on).map((l) => (l.id === 'haz' ? `Red cells: slope > ${slope}°` : LEGEND[l.id])).filter(Boolean);
   return (
     <div className="ov" id="lg"><b>Legend</b> {items.join(' · ') || 'No layers on'}<br />
-      <span style={{ color: '#b4c1d8' }}>Solid line = outbound · dashed = return · ◆ science target · dotted white = previous route</span>
+      <span style={{ color: '#f0b254' }}>Routes, targets and terrain layers are simulated.</span><br />
+      <span style={{ color: '#b4c1d8' }}>Solid = outbound · dashed = return · ◆ target · dotted = previous</span>
     </div>
   );
 }

@@ -2,7 +2,6 @@
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, status
 from app.schemas import (
-    AssistantRequest, AssistantResponse, CreateAnalysisRequest,
     CreateMissionRequest, DatasetCategory, DatasetRecord, DatasetRefreshJob,
     FreshnessState, Mission, NavigationGuideRequest, NavigationInstruction,
     OfflinePackageRequest, OfflinePackageStatus,
@@ -39,5 +38,3 @@ def create_route(_: RouteRequest) -> RouteResult: pending()
 def replan_route(route_id: UUID, _: ReplanRequest) -> RouteResult: pending()
 @router.post("/navigation/guide", response_model=NavigationInstruction)
 def navigation_guide(_: NavigationGuideRequest) -> NavigationInstruction: pending()
-@router.post("/assistant/messages", response_model=AssistantResponse)
-def assistant_message(_: AssistantRequest) -> AssistantResponse: pending()
