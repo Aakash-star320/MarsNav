@@ -6,7 +6,8 @@ import { useMissionStore } from './missionStore';
 import { PLANNING_AREA, autoTerrainRegion, getViewport } from '../utils/viewport';
 import { API_BASE, AnalysisError, cancelAnalysis, createAnalysis, fetchMapPackage, waitForAnalysis } from '../api/analysis';
 import { regionToBounds, toDashboardTarget } from '../api/mapping';
-import { KM_PER_PX, regionZoom } from '../utils/geo';
+import { KM_PER_PX, WALK_KMH, lonLatToPx, pxToLonLat, regionZoom } from '../utils/geo';
+import { RoutingError, buildRouteRequest, conflictText, guideRoute, obstacleToBlockedArea, planRoute, replanRoute, toDashboardRoutes } from '../api/routing';
 import { askAssistant, fetchAssistantStatus, toChatMessage } from '../api/assistant';
 import { defaultLayers } from '../utils/layers';
 
@@ -40,6 +41,8 @@ export interface Actions {
   toggleOnline: () => void;
   toggleAi: () => void;
   refreshAssistant: () => void;
+  /** Asks the routing service what to do next at a position on the followed route. */
+  refreshGuide: (pos: Pt, headingDeg: number) => void;
   clearChat: () => void;
   showOnMap: (a: ChatAction) => void;
   setAiDraft: (v: string) => void;
@@ -73,7 +76,7 @@ const initial: DataState = {
   job: null, err: '', stale: false, selT: null, real: null,
   pk: [{ n: 'Jezero region package (demo)', sz: '148 MB', st: 'Downloaded', up: '2026-11-12' }],
   pan: { L: true, R: false, B: false }, bh: 260, adv: false, lyOpen: false,
-  layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '', aiBar: null, focusZoom: null, assistantMode: null, assistantModel: null, pendingQ: null,
+  layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '', aiBar: null, focusZoom: null, assistantMode: null, assistantModel: null, pendingQ: null, routeSource: 'simulated', routeNotes: [], guideText: null,
 };
 
 export const useStore = create<Store>((set, get) => {
@@ -141,7 +144,7 @@ export const useStore = create<Store>((set, get) => {
       const layer = (l: { layer: { uri: string; bounds: import('../types/contracts').BoundingBox } }) => ({ href: l.layer.uri, bounds: l.layer.bounds });
       set((s) => ({
         job: null, cache: true, err: '',
-        real: { id: created.id, hazardBase: API_BASE + '/analyses/' + created.id + '/layers/hazard.png', stats, notes: pkg.notes, warnings: done.warnings,
+        real: { id: created.id, missionId: created.mission_id, hazardBase: API_BASE + '/analyses/' + created.id + '/layers/hazard.png', stats, notes: pkg.notes, warnings: done.warnings,
                 layers: { elevation: layer(el), slope: layer(sl), science: sci ? layer(sci) : undefined } },
         summary: { w: region.w * KM_PER_PX, h: region.h * KM_PER_PX, mn: stats.elevation_min_m ?? 0, mx: stats.elevation_max_m ?? 0,
                    sl: stats.slope_mean_deg ?? 0, hz: 100 * (stats.slope_exceedance_fraction ?? 0) },
@@ -201,9 +204,54 @@ export const useStore = create<Store>((set, get) => {
       set({ routes: [], prev, err: 'No feasible route: reported obstacles block every candidate path. Remove an obstacle or move the destination.' });
       return;
     }
-    set({ routes, prev, sel: Math.max(0, routes.findIndex((r) => r.k === s.preset)), err: '' });
+    set({ routes, prev, sel: Math.max(0, routes.findIndex((r) => r.k === s.preset)), err: '', routeSource: 'simulated', routeNotes: [], guideText: null });
     openPanels(true, true);
   };
+
+  // -- real routes: planned by the routing service on the analysed terrain --------------------------------------
+  let routeToken = 0;
+  let routeBasis: { preset: string; start: Pt; obs: number } | null = null;   // what the current real routes were planned for
+  const analysedRect = (r: NonNullable<DataState['real']>) => {
+    const b = r.layers.elevation.bounds, a = lonLatToPx({ latitude_deg: b.north_deg, longitude_deg_east: b.west_deg_east }), z = lonLatToPx({ latitude_deg: b.south_deg, longitude_deg_east: b.east_deg_east });
+    return { x0: a.x, y0: a.y, x1: z.x, y1: z.y };
+  };
+  const insideRect = (p: Pt, r: { x0: number; y0: number; x1: number; y1: number }) => p.x >= r.x0 && p.x <= r.x1 && p.y >= r.y0 && p.y <= r.y1;
+
+  const runRealRoutes = async (from: Pt) => {
+    const s = get(), real = s.real, dest = s.dest;
+    if (!real || !real.missionId || !dest) return;
+    const token = ++routeToken;
+    const alive = () => token === routeToken;
+    set({ job: { title: 'Generate Routes', stages: ['Plan on the real terrain', 'Compare routes', 'Done'], i: 0, real: true }, err: '' });
+    const inputs = { missionId: real.missionId, analysisId: real.id, start: from, dest, preset: s.preset, slope: s.slope, ret: s.ret, maxKm: s.maxd, oxyH: s.oxy,
+                     reserveMin: s.res, examMin: s.exam, speedMPerMin: (WALK_KMH * 1000) / 60, obs: s.obs };
+    try {
+      const cur = s.routes[s.sel]?.src, added = s.obs.slice(routeBasis?.obs ?? 0).map(obstacleToBlockedArea);
+      const canReplan = !!cur && s.routeSource === 'real' && added.length > 0 && routeBasis?.preset === s.preset && routeBasis.start.x === from.x && routeBasis.start.y === from.y;
+      let res;
+      if (canReplan && cur) {
+        try { res = await replanRoute(cur.replanId, { original_route_id: cur.replanId, analysis_id: real.id, original_request_version: cur.version, blocked_areas: added }); }
+        catch (e) { if (e instanceof RoutingError && (e.status === 404 || e.status === 409)) res = await planRoute(buildRouteRequest(inputs)); else throw e; }   // the service forgot the route (restart): plan again
+      } else res = await planRoute(buildRouteRequest(inputs));
+      if (!alive()) return;
+      const prev = s.routes.length ? combined(s)?.s.p ?? null : null;
+      const routes = toDashboardRoutes(res, s.preset, { slope: s.slope, speed: inputs.speedMPerMin, ret: s.ret, dest });
+      if (!res.feasible || !routes.length) {
+        set({ job: null, routes: [], prev, err: 'No feasible route: ' + conflictText(res), routeSource: 'real', routeNotes: res.warnings });
+        return;
+      }
+      routeBasis = { preset: s.preset, start: from, obs: s.obs.length };
+      const notes = s.ret ? [...res.warnings, 'The return leg goes back to the start point.'] : res.warnings;
+      set({ job: null, routes, prev, sel: Math.max(0, routes.findIndex((r) => r.k === s.preset)), err: '', routeSource: 'real', routeNotes: notes, guideText: null });
+      openPanels(true, true);
+    } catch (e) {
+      if (!alive()) return;
+      set({ job: null, err: e instanceof TypeError ? 'Cannot reach the routing service. Start the backend and try again.' : 'Route planning failed: ' + (e as Error).message });
+    }
+  };
+
+  /** True when routes should come from the routing service: an analysis exists and there are no waypoints (the contract has none). */
+  const realRoutesFor = (s: DataState) => !!s.real && s.wps.length === 0;
 
   const applyMission = (from: Pt) => {
     const s = get();
@@ -251,6 +299,16 @@ export const useStore = create<Store>((set, get) => {
       const s = get();
       set({ stale: false });
       if (!s.start || !s.dest) { set({ err: 'Set both a Start and a Destination first. Use Set on map, or choose a science target.' }); return; }
+      if (realRoutesFor(s) && s.real) {
+        if (!s.online) { set({ err: 'You are offline. Real routes come from the routing service and need the backend.' }); return; }
+        const area = analysedRect(s.real);
+        if (!insideRect(s.start, area) || !insideRect(s.dest, area)) {
+          set({ err: 'Start and Destination must both be inside the analysed area (the teal box): real routes only exist on terrain that has been analysed. Move them, or analyze a larger area.' });
+          return;
+        }
+        void runRealRoutes(s.start);
+        return;
+      }
       runJob('Generate Routes', [0, 1, 2, 3, 4, 6, 8], () => { const st = get(); if (st.start) applyRoutes(st.start); });
     },
     plan: () => {
@@ -266,7 +324,7 @@ export const useStore = create<Store>((set, get) => {
       const s = get();
       set({
         pan: { ...s.pan, R: false, B: false }, start: null, dest: null, wps: [], region: null, targets: [], summary: null, real: null,
-        routes: [], mission: null, obs: [], prev: null, focus: null, err: '', stale: false, selT: null,
+        routes: [], mission: null, obs: [], prev: null, focus: null, err: '', stale: false, selT: null, routeSource: 'simulated', routeNotes: [], guideText: null,
         pick: s.mode === 'analyze' ? 'region' : null,
       });
     },
@@ -344,14 +402,30 @@ export const useStore = create<Store>((set, get) => {
         }
       }
       if (s.mode === 'mission') applyMission(s.nav && from ? from : s.base);
-      else if (s.dest && from) applyRoutes(from);
+      else if (s.dest && from) {
+        if (realRoutesFor(s) && s.real) {
+          const area = analysedRect(s.real);
+          if (!insideRect(from, area) || !insideRect(s.dest, area)) { set({ err: 'The start or destination is outside the analysed area, so the routing service cannot replan.' }); return; }
+          void runRealRoutes(from);
+        } else applyRoutes(from);
+      }
+    },
+    refreshGuide: (pos, headingDeg) => {
+      const s = get(), r = s.routes[s.sel];
+      if (s.routeSource !== 'real' || !r?.src) return;
+      const id = r.src.id, ll = pxToLonLat(pos);
+      guideRoute(id, { latitude_deg: ll.latitude_deg, longitude_deg_east: ll.longitude_deg_east }, ((headingDeg % 360) + 360) % 360)
+        .then((g) => { if (get().routes[get().sel]?.src?.id === id) set({ guideText: g.message }); })
+        .catch(() => set({ guideText: null }));            // guidance is a convenience: the route and the HUD stay usable without it
     },
 
     mapPick: (p) => {
       const s = get(), k = s.pick;
       if (!k || k === 'region') return;
-      if (p.x < 0 || p.y < 0 || p.x > 800 || p.y > 500) {
-        set({ err: 'That point is outside the planning area (the dashed frame, 16 × 10 km). Simulated routes only exist inside it; click inside the frame, or press Fit to see it.' });
+      const inFrame = p.x >= 0 && p.y >= 0 && p.x <= 800 && p.y <= 500;
+      const inAnalysis = !!s.real && insideRect(p, analysedRect(s.real));      // real routes may go anywhere on the analysed terrain
+      if (!inFrame && !inAnalysis) {
+        set({ err: s.real ? 'That point is outside the analysed area (the teal box) and the planning frame. Real routes only exist on analysed terrain; click inside the teal box.' : 'That point is outside the planning area (the dashed frame, 16 × 10 km). Simulated routes only exist inside it; click inside the frame, or press Fit to see it.' });
         return;
       }
       set({ pick: null, err: '' });
