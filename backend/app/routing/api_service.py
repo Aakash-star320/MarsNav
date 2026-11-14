@@ -131,23 +131,15 @@ class RoutingApi:
         main = self._plan_one(request.model_copy(update={"preset": main_preset}), routing, blocked)
         alternatives: list[RouteAlternative] = []
         if main.result.feasible:
-            seen = [main.path]
-            same: list[str] = []
             for preset in COMPARISON_PRESETS:
                 if preset == main_preset:
                     continue
                 alt = self._plan_one(request.model_copy(update={"preset": preset}), routing, blocked)
                 if not (alt.result.feasible and alt.result.metrics is not None):
                     continue
-                if alt.path in seen:                          # the same cells: not a different route, so not shown as one
-                    same.append(PRESET_LABEL[preset])
-                    continue
-                seen.append(alt.path)
                 self._remember(alt, request)                      # an alternative can be followed and replanned like the main route
                 alternatives.append(RouteAlternative(id=alt.result.id, label=PRESET_LABEL[preset], geometry=alt.path, metrics=alt.result.metrics,
                                                      elevation_profile=alt.result.elevation_profile, warnings=alt.result.warnings))
-            if same:
-                main.result.warnings.append(f"On this terrain the {' and '.join(same)} setting{'s' if len(same) > 1 else ''} give the same route, so no separate alternative is shown.")
         main.result.alternatives = alternatives
         self._remember(main, request)
         return main.result

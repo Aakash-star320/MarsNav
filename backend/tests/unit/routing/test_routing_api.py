@@ -77,10 +77,10 @@ def test_impossible_requests_explain_themselves_in_plain_words(api) -> None:
 
 
 # -- alternatives -----------------------------------------------------------------------------------
-def test_identical_presets_are_not_shown_as_alternatives_and_the_answer_says_so(api) -> None:
+def test_every_preset_is_offered_even_when_they_take_the_same_cells(api) -> None:
     svc, _, _, request = api
     res = svc.plan(request(return_to_base=False))                           # flat terrain: every preset takes the same cells
-    assert res.alternatives == [] and any("give the same route" in w for w in res.warnings)
+    assert len(res.alternatives) == 2 and all(a.geometry == res.geometry for a in res.alternatives)
 
 
 def test_rough_ground_changes_the_route_and_alternatives_are_distinct(api) -> None:
@@ -95,8 +95,8 @@ def test_rough_ground_changes_the_route_and_alternatives_are_distinct(api) -> No
     assert res.metrics.distance_m > straight                                           # at the price of a longer route
     assert res.alternatives, "the other presets choose different cells on this terrain"
     labels = [a.label for a in res.alternatives]
-    assert len(set(labels)) == len(labels) and all(a.geometry != res.geometry and a.metrics.distance_m > 0 for a in res.alternatives)
-    assert all(a.geometry != b.geometry for i, a in enumerate(res.alternatives) for b in res.alternatives[i + 1:])
+    assert len(set(labels)) == len(labels) and all(a.metrics.distance_m > 0 for a in res.alternatives)
+    assert any(a.geometry != res.geometry for a in res.alternatives)
     alt = res.alternatives[0]                                                           # an alternative is a full route: readable, with its own profile, and followable
     assert svc.get(alt.id).geometry == alt.geometry and len(alt.elevation_profile) == len(alt.geometry)
     assert guide(svc, svc.get(alt.id), alt.geometry[0], 0.0).remaining_distance_m == pytest.approx(alt.metrics.distance_m)
