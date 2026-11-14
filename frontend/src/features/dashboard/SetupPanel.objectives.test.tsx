@@ -40,7 +40,7 @@ describe('the scientific objective select', () => {
     await waitFor(() => expect(objectiveOptions().map((o) => o.textContent)).toEqual(['Hydrated minerals', 'Flat safe sites', 'High vantage points']));
     expect(screen.queryByText('Thermal properties')).toBeNull();                 // the old fixed names that did nothing are gone
     expect(screen.queryByText('Interesting terrain')).toBeNull();
-    expect(screen.getByTestId('objective-note').textContent).toBe('Derived from 463 m elevation.');
+    expect(screen.getByTestId('objective-note').textContent).toBe('d');
     expect((screen.getByRole('combobox', { name: /Scientific objective/ }) as HTMLSelectElement).value).toBe('flat_safe_sites');
   });
 

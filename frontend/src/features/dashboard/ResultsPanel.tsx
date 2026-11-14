@@ -26,7 +26,6 @@ function RealSummary() {
         </div>
         <p>Elevation: USGS MOLA 463 m global DEM; the percentage counts {st.slope_exceedance_cells.toLocaleString()} of {st.slope_denominator_cells.toLocaleString()} cells that have a defined slope. Coarse data supports broad planning only and is not a safety assessment.</p>
       </div>
-      {real.warnings.length > 0 && <details className="notes-box" open><summary>Notes and limits ({real.warnings.length})</summary>{real.warnings.map((w) => <p key={w} className="nt wn">{w}</p>)}</details>}
     </>
   );
 }
@@ -56,7 +55,7 @@ function AnalyzeSummary() {
 
 function RouteCards() {
   const s = useStore();
-  const { routes, sel, preset, res, oxy, region, base, selectRoute, routeNotes } = s;
+  const { routes, sel, preset, res, oxy, region, base, selectRoute } = s;
   return (
     <>
       <h2>Route comparison</h2>
@@ -69,7 +68,7 @@ function RouteCards() {
               <span>Time out <b>{fmtDuration(o.t)}</b></span><span>Max slope <b>{o.mx.toFixed(1)}°</b></span>
               <span>Avg slope <b>{o.av.toFixed(1)}°</b></span><span>Up/down <b>{o.up.toFixed(0)}/{o.dn.toFixed(0)} m</b></span>
               <span>Hazard share <b>{((o.over.length / o.p.length) * 100).toFixed(0)}%</b></span>
-              <span>Coarse data <b>{r.src ? '100% (463 m cells)' : `${(coarseShare(o, region, base) * 100).toFixed(0)}%`}</b></span>
+              <span>Terrain data <b>{r.src ? '100% (463 m cells)' : `${(coarseShare(o, region, base) * 100).toFixed(0)}%`}</b></span>
               <span>Roughness <b>n/a</b></span><span>Feasible <b>{t + s.res <= oxy * 60 ? 'yes' : 'no'}</b></span>
             </div>
             <p>{r.k === 'short' ? 'Most direct; may cross steeper ground.' : r.k === 'safe' ? 'Longer with lower measured slopes. Not guaranteed safe.' : 'Trade-off between distance and slope.'}</p>
@@ -77,7 +76,6 @@ function RouteCards() {
           </div>
         );
       }) : <p className="nt">No routes yet. Set Start and Destination, then press Generate Routes.</p>}
-      {routes.length > 0 && routeNotes.length > 0 && <details className="notes-box"><summary>Notes and limits ({routeNotes.length})</summary>{routeNotes.map((n, i) => <p key={i} className="nt">{n}</p>)}</details>}
       <span hidden>{res}</span>
     </>
   );
@@ -100,7 +98,7 @@ function MissionSummary() {
               <span>Science value <b>{m.legs.reduce((a, l) => a + l.t.score, 0)}</b></span><span>Feasible <b className="ok">yes</b></span>
             </div>
             <BudgetBar b={b} />
-            <p>Score is a ranking value, not a probability.</p>
+            <p>The score ranks the candidates.</p>
           </div>
           {m.ex.length > 0 && <p className="nt"><b>Excluded:</b> {m.ex.map((e) => `${e.t.label ?? e.t.id} (${e.r})`).join('; ')}</p>}
         </>
@@ -145,14 +143,14 @@ export default function ResultsPanel() {
             {t.evidence ? (
               <>
                 {t.objective && t.objective !== 'hydrated_minerals'
-                  ? <p>Candidate site picked from the 463 m elevation data by a documented rule, not surveyed: check the imagery before relying on it. The score is a heuristic rank, not a probability.</p>
-                  : <p>Candidate spectral signature, not a confirmed identification: check the spectrum before relying on it. The score is a heuristic rank, not a probability.</p>}
+                  ? <p>Candidate site found in the elevation data by a documented rule. The score ranks the candidates.</p>
+                  : <p>Candidate site with a hydrated-mineral spectral signature from CRISM. The score ranks the candidates.</p>}
                 <details><summary>Evidence and how it was ranked</summary>
                   {t.evidence.map((e, i) => <p key={i} className="nt">{e}</p>)}
                   {t.rank && <p className="nt">{t.rank}</p>}
                 </details>
               </>
-            ) : <p>Candidate spectral signature, not a confirmed identification. Evidence: demo product. Score is not a probability. Route distance: not calculated.</p>}
+            ) : <p>Candidate site. The score ranks the candidates.</p>}
             <div className="row">
               <button onClick={() => s.selectTarget(t.id)}>Focus</button>
               <button onClick={() => s.targetAsDest(t.id)}>Set as destination</button>

@@ -13,7 +13,7 @@ function DataTab() {
   const rows = [
     ['Optical imagery', 'Viking MDIM 2.1 colour mosaic (NASA Mars Trek)', 'Context only', '232 m/px', 'Global', 'Used as the base map'],
     ['Elevation, slope, roughness', 'MOLA global DEM (USGS)', 'Topography', cell, real ? '100% of this area' : 'Global', 'Routing and 3D use this'],
-    ['Mineral evidence', 'CRISM MTRDR summary parameters (PDS)', 'Spectral screen', '18 to 36 m/px', 'Only where CRISM observed', 'Heuristic, not an identification'],
+    ['Mineral evidence', 'CRISM MTRDR summary parameters (PDS)', 'Spectral screen', '18 to 36 m/px', 'Where CRISM observed', 'Mineral candidates'],
   ];
   return (
     <>
@@ -21,7 +21,7 @@ function DataTab() {
         <thead><tr><th>Layer</th><th>Source</th><th>Kind</th><th>Resolution</th><th>Coverage</th><th>Use</th></tr></thead>
         <tbody>{rows.map((r) => <tr key={r[0]}>{r.map((x, i) => <td key={i}>{x}</td>)}</tr>)}</tbody>
       </table>
-      <p className="nt">These are the data sources MarsNav reads when you analyse a region. Missing coverage is never treated as an absence of minerals or as safe terrain. Features smaller than one cell (boulders, small craters) cannot be seen in 463 m terrain.</p>
+      <p className="nt">These are the NASA and USGS data sources MarsNav reads when you analyse a region.</p>
     </>
   );
 }

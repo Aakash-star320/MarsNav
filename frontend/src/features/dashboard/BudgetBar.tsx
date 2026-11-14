@@ -7,7 +7,7 @@ export default function BudgetBar({ b }: { b: Budget }) {
       <div className="bar">{b.a.map((x) => <i key={x.n} title={x.n} style={{ width: `${(x.m / b.T) * 100}%`, background: x.c }} />)}</div>
       <div className="lg">{b.a.map((x) => <span key={x.n}><s style={{ background: x.c }} />{x.n} {fmtDuration(x.m)}</span>)}</div>
       <p className="nt">
-        Simulation assumptions: walking {WALK_KMH} km/h; not certified suit consumption.{' '}
+        Walking pace {WALK_KMH} km/h.{' '}
         {b.ok ? <span className="ok">Fits budget.</span> : <span className="bd">Exceeds budget.</span>}
       </p>
     </>

@@ -13,7 +13,7 @@ const LEGEND: Record<string, string> = {
 };
 const REAL_LEGEND: Record<string, string> = {
   elev: 'Elevation (MOLA): blue low → orange high', slope: 'Slope: green gentle → red steep',
-  spec: 'Magenta: strong hydrated-mineral evidence (heuristic, CRISM)',
+  spec: 'Magenta: hydrated-mineral signal (CRISM)',
 };
 
 function Banner() {
@@ -45,13 +45,13 @@ function Legend() {
           <button className="lgx" onClick={() => setOpen(false)} aria-label="Close legend">×</button>
           <b>Legend</b>
           <span className="lgkey">{items.join(' · ') || 'No layers on'}</span>
-          <span className="lgwarn">{real ? `Elevation, slope, steep-terrain and spectral layers are real analysis (463 m terrain). ${realRoutes ? 'Routes follow that real terrain; missions are simulated.' : 'Routes and missions are simulated.'}` : 'Routes, targets and terrain layers are simulated.'}</span>
+          <span className="lgwarn">{real ? `Elevation, slope, steep-terrain and mineral layers come from NASA data (${Math.round(real.stats.cell_size_y_m)} m cells).${realRoutes ? ' Routes follow that terrain.' : ''}` : 'Layers update after you analyse a region.'}</span>
           <span className="lgkey">Solid = outbound · dashed = return · ◆ target · dotted = previous</span>
         </div>
       ) : (
         <button className="ov lgpill" onClick={() => setOpen(true)} aria-label="Open legend"><i className="dot" />Legend</button>
       )}
-      {real && <span className="ov lgres" title="Terrain resolution: features smaller than a cell, such as boulders and small craters, cannot be seen">{cell}</span>}
+      {real && <span className="ov lgres" title="Terrain cell size">{cell}</span>}
     </div>
   );
 }

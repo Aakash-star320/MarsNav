@@ -44,11 +44,6 @@ function Card({ card }: { card: ChatCard }) {
           ))}
         </div>
       )}
-      {card.warnings.length > 0 && (
-        <details className="cx-warn"><summary>{card.warnings.length} note{card.warnings.length > 1 ? 's' : ''} and limitations</summary>
-          {card.warnings.map((w, i) => <p key={i}>{w}</p>)}
-        </details>
-      )}
     </div>
   );
 }
@@ -95,7 +90,7 @@ export default function ChatPanel() {
           <div className="cx-empty">
             <span className="cx-bigorb"><Sparkle size={30} /></span>
             <h2>What would you like to explore?</h2>
-            <p>Ask me to analyze an area, plan a route or a mission, or explain the science. I run the same checked actions as the buttons and only report what the analysis actually returns.</p>
+            <p>Ask me to analyze an area, plan a route or a mission, or explain the science. I use the same actions as the buttons and answer from the analysis results.</p>
             <div className="cx-cards">
               {SUGGESTIONS.map((c) => (
                 <button key={c.title} className="cx-card" onClick={() => sendChat(c.q)}>
@@ -145,7 +140,7 @@ export default function ChatPanel() {
             onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} />
           <button className="cx-send" onClick={send} disabled={!aiDraft.trim()} aria-label="Send"><svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 19V5m0 0l-6 6m6-6l6 6" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
         </div>
-        <small className="cx-hint">Answers come from checked tools and real analysis data. Missing data is never filled in. Enter to send · Shift+Enter for a new line</small>
+        <small className="cx-hint">Answers come from real analysis data. Enter to send · Shift+Enter for a new line</small>
       </footer>
     </aside>
   );

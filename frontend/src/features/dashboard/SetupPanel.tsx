@@ -169,7 +169,7 @@ export default function SetupPanel() {
                 {s.objectives.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
             </label>
-            <p className="nt" data-testid="objective-note">{s.objectives.find((o) => o.id === s.obj)?.limitation}</p>
+            <p className="nt" data-testid="objective-note">{s.objectives.find((o) => o.id === s.obj)?.description}</p>
             <KeyConstraints />
             <NumField k="exam" label="Examination time per site (minutes)" />
             <NumField k="maxSites" label="Maximum number of sites" min={1} />
