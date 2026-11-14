@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { fmtMB } from '../../api/objectives';
 import { useStore } from '../../store/dashboardStore';
 import type { DataState, Mode, Pick } from '../../types/ui';
-import { fmtCoord, KM_PER_PX } from '../../utils/geo';
+import { fmtCoord, KM_PER_PX, lonLatToPx } from '../../utils/geo';
 import { LAYERS, realLabel } from '../../utils/layers';
 
 const MODES: [Mode, string, string][] = [
@@ -133,6 +133,12 @@ export default function SetupPanel() {
         {mode === 'route' && (
           <>
             <LocRow k="start" label="Start" /><LocRow k="dest" label="Destination" /><LocRow k="base" label="Base" />
+            <button className="inline" title="Sets Start 18.3700 N, 77.4350 E and Destination 18.4100 N, 77.4600 E in Jezero crater, then plans the route. Analyse that area first for routes on real terrain." onClick={() => {
+              s.setField('start', { ...lonLatToPx({ latitude_deg: 18.37, longitude_deg_east: 77.435 }) });
+              s.setField('dest', { ...lonLatToPx({ latitude_deg: 18.41, longitude_deg_east: 77.46 }) });
+              s.setField('ret', false);
+              s.generate();
+            }}>Try demo route (Jezero)</button>
             <div className="lr"><span>Waypoints</span><b>{s.wps.length} added</b><button onClick={() => s.setPick('wp')}>Add</button><button onClick={s.clearWps}>Clear</button></div>
             <PresetSelect />
             <label><input type="checkbox" checked={s.ret} onChange={(e) => s.setField('ret', e.target.checked)} /> Return to base</label>

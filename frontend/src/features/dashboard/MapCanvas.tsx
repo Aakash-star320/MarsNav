@@ -56,14 +56,14 @@ const NS = 'non-scaling-stroke';
 const PIN = 'M0 0C-4-9-13-15-13-25a13 13 0 1 1 26 0c0 10-9 16-13 25z';
 
 /** Google-Maps-style teardrop marker whose tip sits on the location, with an optional name tag. */
-function Marker({ p, k, color, glyph, label, size = 1, onClick, hot }: { p: Pt; k: View; color: string; glyph?: string; label?: string; size?: number; onClick?: () => void; hot?: boolean }) {
+function Marker({ p, k, color, glyph, label, size = 1, onClick, hot, fg = '#fff' }: { p: Pt; k: View; color: string; fg?: string; glyph?: string; label?: string; size?: number; onClick?: () => void; hot?: boolean }) {
   return (
     <Pin p={p} k={k}>
       <g transform={`scale(${size})`} style={onClick ? { cursor: 'pointer', pointerEvents: 'all' } : undefined} onClick={onClick}>
         <ellipse cy={1} rx={7} ry={2.8} fill="#000" opacity={0.35} />
         <path d={PIN} fill={color} stroke={hot ? '#ffd166' : '#fff'} strokeWidth={hot ? 3 : 2} />
         <circle cy={-25} r={glyph ? 8.5 : 5} fill={glyph ? 'none' : '#fff'} />
-        {glyph && <text y={-20.5} textAnchor="middle" fill="#fff" fontSize={13} fontWeight={700}>{glyph}</text>}
+        {glyph && <text y={-20.5} textAnchor="middle" fill={fg} fontSize={13} fontWeight={700}>{glyph}</text>}
       </g>
       {label && <Tag text={label} x={16 * size} y={-27 * size} />}
     </Pin>
@@ -80,6 +80,29 @@ function Tag({ text, x, y }: { text: string; x: number; y: number }) {
   );
 }
 
+const letter = (i: number) => String.fromCharCode(65 + (i % 26));
+
+/** Index of the route vertex nearest to `p`, searching forward from `from` so stops stay in order. */
+function nearestIdx(path: Pt[], p: Pt, from: number): number {
+  let best = from, bd = Infinity;
+  for (let i = from; i < path.length; i++) { const d = (path[i].x - p.x) ** 2 + (path[i].y - p.y) ** 2; if (d < bd) { bd = d; best = i; } }
+  return best;
+}
+const fmtLeg = (km: number, min: number) => `${km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(2) + ' km'} · ${Math.max(1, Math.round(min))} min`;
+
+/** Pill label for one leg of the route (distance and walking time), like a map's turn-by-turn legs. */
+function LegPill({ text, p, k }: { text: string; p: Pt; k: View }) {
+  const w = text.length * 6.4 + 16;
+  return (
+    <Pin p={p} k={k}>
+      <g transform="translate(0 -14)">
+        <rect x={-w / 2} y={-11} width={w} height={22} rx={11} fill="#0b1220" stroke="#fff" strokeOpacity={0.85} strokeWidth={1.5} />
+        <text y={4} textAnchor="middle" fill="#fff" fontSize={11.5} fontWeight={600}>{text}</text>
+      </g>
+    </Pin>
+  );
+}
+
 export default function MapCanvas() {
   const s = useStore();
   const hostRef = useRef<HTMLDivElement>(null);
@@ -91,6 +114,25 @@ export default function MapCanvas() {
   const L_ = s.layers;
   const drawing = s.pick === 'region';
   const segs = segsOf(s);
+  const stops = s.start && s.dest ? [s.start, ...s.wps, s.dest] : [];
+  const main = s.mode === 'route' ? segs[0] : undefined;
+  const legs = (() => {
+    if (!main || stops.length < 2) return [] as { text: string; p: Pt }[];
+    const path = main.s.p, st = main.s;
+    if (path.length < 2) return [];
+    const idx = [0]; for (let i = 1; i < stops.length - 1; i++) idx.push(nearestIdx(path, stops[i], idx[i - 1])); idx.push(path.length - 1);
+    const total = st.cum[st.cum.length - 1] || 1;
+    return idx.slice(1).map((e, i) => {
+      const a = idx[i], km = (st.cum[e] ?? 0) - (st.cum[a] ?? 0);
+      return { text: fmtLeg(km, st.t * (km / total)), p: path[Math.round((a + e) / 2)] };
+    }).filter((l) => l.p);
+  })();
+  const steep = (x: { s: { p: Pt[]; over: number[] } }) => {
+    const runs: Pt[][] = []; let cur: number[] = [];
+    [...x.s.over].sort((a, b) => a - b).forEach((i) => { if (cur.length && i !== cur[cur.length - 1] + 1) { runs.push(cur.map((j) => x.s.p[j])); cur = []; } cur.push(i); });
+    if (cur.length) runs.push(cur.map((j) => x.s.p[j]));
+    return runs.filter((r) => r.length > 1);
+  };
   const c = s.nav ? combined(s) : null;
   const navP = c && s.nav ? c.s.p[Math.min(s.nav.i, c.s.p.length - 1)] : null;
   const latest = useRef(s);
@@ -199,15 +241,18 @@ export default function MapCanvas() {
           ))}
           {s.prev && <polyline points={pts(s.prev)} fill="none" stroke="#fff" strokeWidth={2} strokeDasharray="2 5" opacity={0.6} vectorEffect={NS} />}
           {s.mode === 'route' && s.routes.map((r, i) => i !== s.sel && <polyline key={r.k} points={pts(r.out.p)} fill="none" stroke={r.c} strokeWidth={2} opacity={0.45} vectorEffect={NS} />)}
-          {segs.map((x, i) => <polyline key={i} points={pts(x.s.p)} fill="none" stroke={x.c} strokeWidth={x.dashed ? 3 : 5} strokeDasharray={x.dashed ? '9 5' : undefined} strokeLinecap="round" vectorEffect={NS} />)}
+          {segs.map((x, i) => <polyline key={'c' + i} points={pts(x.s.p)} fill="none" stroke="#0b1220" strokeOpacity={0.85} strokeWidth={x.dashed ? 6 : 9} strokeLinecap="round" strokeLinejoin="round" vectorEffect={NS} />)}
+          {segs.map((x, i) => <polyline key={i} points={pts(x.s.p)} fill="none" stroke={x.c} strokeWidth={x.dashed ? 3 : 5} strokeDasharray={x.dashed ? '9 5' : undefined} strokeLinecap="round" strokeLinejoin="round" vectorEffect={NS} />)}
+          {segs.filter((x) => !x.dashed).flatMap((x, i) => steep(x).map((r, j) => <polyline key={`st${i}-${j}`} points={pts(r)} fill="none" stroke="#fbbf24" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" vectorEffect={NS}><title>Steeper than the slope limit</title></polyline>))}
+          {legs.map((l, i) => <LegPill key={i} text={l.text} p={l.p} k={k} />)}
           {s.targets.map((t) => {
             const o = s.mission?.feasible ? s.mission.legs.findIndex((l) => l.t === t) : -1;
             return <Marker key={t.id} p={t} k={k} color="#8b5cf6" glyph={o >= 0 ? String(o + 1) : '★'} label={t.label ?? t.id} hot={s.selT === t.id} onClick={() => s.selectTarget(t.id)} />;
           })}
-          {s.wps.map((w, i) => <Marker key={i} p={w} k={k} color="#f59e0b" glyph={String(i + 1)} size={0.8} />)}
+          {s.wps.map((w, i) => <Marker key={i} p={w} k={k} color="#fff" fg="#0b1220" glyph={letter(i + 1)} size={0.85} />)}
           <Marker p={s.base} k={k} color="#2563eb" glyph="⌂" label="Base" />
           {s.start && <Marker p={s.start} k={k} color="#16a34a" glyph="A" label="Start" />}
-          {s.dest && <Marker p={s.dest} k={k} color="#dc2626" glyph="B" label="Destination" />}
+          {s.dest && <Marker p={s.dest} k={k} color="#dc2626" glyph={letter(s.wps.length + 1)} label="Destination" />}
           {s.focus && <Pin p={s.focus} k={k}><circle r={22} fill="#e8aa3c33" stroke="#e8aa3c" strokeWidth={2} /></Pin>}
           {navP && <Pin p={navP} k={k}><circle r={16} fill="#4285f4" opacity={0.22} /><circle r={8} fill="#4285f4" stroke="#fff" strokeWidth={3} /><Tag text="Simulated astronaut" x={14} y={-14} /></Pin>}
           {rubber && <rect x={Math.min(rubber.a.x, rubber.b.x)} y={Math.min(rubber.a.y, rubber.b.y)} width={Math.abs(rubber.b.x - rubber.a.x)} height={Math.abs(rubber.b.y - rubber.a.y)} fill="#2dd4d022" stroke="#2dd4d0" strokeDasharray="6 3" vectorEffect={NS} />}
