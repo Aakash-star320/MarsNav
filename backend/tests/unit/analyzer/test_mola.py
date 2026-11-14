@@ -111,6 +111,28 @@ def test_http_fetcher_rejects_bad_replies(response, code) -> None:
     assert exc.value.code == code
 
 
+def test_http_fetcher_retries_a_busy_server_and_then_succeeds_or_gives_up(monkeypatch) -> None:
+    monkeypatch.setattr(mola.time, "sleep", lambda s: None)
+    state = {"n": 0}
+
+    def flaky(req):
+        state["n"] += 1
+        return httpx.Response(502) if state["n"] <= 2 else httpx.Response(206, content=b"z" * 4, headers={"content-type": "image/tiff"})
+    assert http_range_fetcher("https://example.test/a.tif", client=_client(flaky))(0, 3) == b"zzzz"      # two 502s, then the data
+    assert state["n"] == 3
+    always = []
+
+    def down(req):
+        always.append(1)
+        return httpx.Response(503)
+    with pytest.raises(MolaError) as exc:
+        http_range_fetcher("https://example.test/a.tif", retries=2, client=_client(down))(0, 3)
+    assert exc.value.code == "fetch_failed" and "503" in str(exc.value) and len(always) == 3
+    with pytest.raises(MolaError) as exc2:
+        http_range_fetcher("https://example.test/a.tif", client=_client(lambda r: httpx.Response(404)))(0, 3)
+    assert exc2.value.code == "bad_status"
+
+
 def test_http_fetcher_retries_short_reads_then_gives_up(monkeypatch) -> None:
     monkeypatch.setattr(mola.time, "sleep", lambda s: None)
     calls = []

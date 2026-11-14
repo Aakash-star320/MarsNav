@@ -70,6 +70,17 @@ def _context_block(req: AssistantRequest, analyses: AnalysisService) -> str:
     return "\n".join(out)
 
 
+_PLACEHOLDER = re.compile(r"^\W*(\.{2,}|…|<[^>]*>|your answer.*|answer here)\W*$", re.IGNORECASE)
+
+
+def _real_answer(message: object) -> bool:
+    """A usable final answer: not blank, not a bare placeholder such as '...' or '<your answer>', and at least a few characters of words."""
+    if not isinstance(message, str):
+        return False
+    text = message.strip()
+    return len(re.findall(r"\w", text)) >= 3 and not _PLACEHOLDER.match(text)
+
+
 def parse_reply(text: str) -> dict[str, Any] | None:
     """The first JSON object in the reply (tolerates code fences and surrounding words), or None."""
     cleaned = re.sub(r"^```(?:json)?\s*|\s*```$", "", text.strip(), flags=re.IGNORECASE)
@@ -145,7 +156,7 @@ class LlmAssistant:
             raw = self._client.generate(turns)
             obj = parse_reply(raw)
             action = obj.get("action") if obj else None
-            if action == "final" and isinstance(obj.get("message"), str) and obj["message"].strip():
+            if action == "final" and _real_answer(obj.get("message")):
                 final = obj["message"].strip()[:ANSWER_CHARS]
                 break
             if action == "tool" and isinstance(obj.get("tool"), str):
@@ -164,7 +175,7 @@ class LlmAssistant:
             repairs += 1
             if repairs > MAX_REPAIRS:
                 raise LlmUnavailable("bad_format", "the language model did not follow the reply format")
-            turns += [("model", raw[:2000]), ("user", 'Your reply was not a valid JSON object. Reply again with EXACTLY ONE JSON object: {"action":"tool",...} or {"action":"final","message":"..."}.')]
+            turns += [("model", raw[:2000]), ("user", 'Your reply was not a valid answer. Reply again with EXACTLY ONE JSON object: either a tool call with the keys "action" (value "tool"), "tool" and "arguments", or a final answer with the keys "action" (value "final") and "message" holding your real answer in full sentences.')]
         return self._respond(final, calls)
 
     # -- tools ------------------------------------------------------------------------------------

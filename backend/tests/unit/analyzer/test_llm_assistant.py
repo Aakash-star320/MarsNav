@@ -100,6 +100,17 @@ def test_tools_that_start_work_or_belong_to_other_services_are_not_runnable(tmp_
     assert len(list(tmp_path.iterdir())) == jobs_before                           # no analysis was started
 
 
+@pytest.mark.parametrize("empty", ["...", "…", "<your answer to the user>", "  ", "ok", "Your answer here"])
+def test_a_placeholder_is_never_accepted_as_the_answer(tmp_path, empty) -> None:
+    svc, _ = finished_analysis(tmp_path)
+    model = FakeModel({"action": "final", "message": empty}, {"action": "final", "message": "The area is gentle: about 3 degrees on average."})
+    resp = LlmAssistant(model, svc).handle(request("how steep?"))
+    assert resp.message.startswith("The area is gentle")                         # the placeholder triggered the one repair
+    assert "..." not in model.sent[1][-1][1]                                       # and the repair request itself contains no placeholder to echo
+    with pytest.raises(LlmUnavailable):
+        LlmAssistant(FakeModel({"action": "final", "message": empty}, {"action": "final", "message": empty}), svc).handle(request("again"))
+
+
 def test_malformed_output_gets_one_repair_then_fails_over(tmp_path) -> None:
     svc, _ = finished_analysis(tmp_path)
     ok = LlmAssistant(FakeModel("not json at all", {"action": "final", "message": "fixed"}), svc).handle(request("hi"))
@@ -154,12 +165,20 @@ def test_client_maps_http_failures_to_stable_codes_without_leaking_the_key(statu
     assert len(calls) == (2 if status in (429, 503) else 1)                     # only transient errors are retried once
 
 
-def test_client_handles_timeouts_empty_replies_and_missing_configuration() -> None:
+def test_client_ignores_thinking_parts_and_does_not_retry_a_timeout() -> None:
+    reply = {"candidates": [{"content": {"parts": [{"text": "{\"action\":\"final\",\"message\":\"...\"} my reasoning", "thought": True}, {"text": "the real answer"}]}}]}
+    assert client_with(lambda r: httpx.Response(200, json=reply)).generate([("user", "x")]) == "the real answer"
+    calls = []
+
     def slow(req):
+        calls.append(1)
         raise httpx.ReadTimeout("slow")
     with pytest.raises(LlmUnavailable) as exc:
         client_with(slow).generate([("user", "x")])
-    assert exc.value.code == "timeout"
+    assert exc.value.code == "timeout" and len(calls) == 1                         # failing over quickly beats waiting twice
+
+
+def test_client_handles_empty_replies_and_missing_configuration() -> None:
     with pytest.raises(LlmUnavailable) as exc:
         client_with(lambda r: httpx.Response(200, json={"candidates": []})).generate([("user", "x")])
     assert exc.value.code == "empty_reply"

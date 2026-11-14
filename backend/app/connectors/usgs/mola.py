@@ -57,6 +57,7 @@ class MolaError(RuntimeError):
 
 
 FETCH_WORKERS = 16     # concurrent row requests
+TRANSIENT_STATUS = {429, 500, 502, 503, 504}   # worth retrying: the server is busy or failed for a moment
 
 
 @dataclass(frozen=True)
@@ -151,7 +152,7 @@ def read_window(
     )
 
 
-def http_range_fetcher(url: str = MOLA_URL, timeout_s: float = 60.0, retries: int = 2, client: httpx.Client | None = None) -> RangeFetcher:
+def http_range_fetcher(url: str = MOLA_URL, timeout_s: float = 60.0, retries: int = 4, client: httpx.Client | None = None) -> RangeFetcher:
     """Range fetcher with status/content checks, bounded retries and exponential backoff."""
     # One pooled client for every request this fetcher makes (thread-safe), so concurrent row reads reuse
     # connections instead of paying a new TLS handshake each.
@@ -168,13 +169,16 @@ def http_range_fetcher(url: str = MOLA_URL, timeout_s: float = 60.0, retries: in
                 last_error = exc
             else:
                 ctype = r.headers.get("content-type", "")
-                if r.status_code != 206:
+                if r.status_code in TRANSIENT_STATUS:          # a busy or briefly failing server: retry with backoff
+                    last_error = MolaError("bad_status", f"server answered {r.status_code}")
+                elif r.status_code != 206:
                     raise MolaError("bad_status", f"expected 206 Partial Content, got {r.status_code}")
-                if "text/html" in ctype:
+                elif "text/html" in ctype:
                     raise MolaError("bad_content", "server returned an HTML page instead of raster bytes")
-                if len(r.content) == expected:
+                elif len(r.content) == expected:
                     return r.content
-                last_error = MolaError("short_read", f"expected {expected} bytes, received {len(r.content)}")
+                else:
+                    last_error = MolaError("short_read", f"expected {expected} bytes, received {len(r.content)}")
             if attempt < retries:
                 time.sleep(0.5 * 2 ** attempt)
         raise MolaError("fetch_failed", f"gave up after {retries + 1} attempts: {last_error}")

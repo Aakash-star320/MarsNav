@@ -26,7 +26,7 @@ class LlmUnavailable(RuntimeError):
 
 
 class GemmaClient:
-    def __init__(self, api_key: str, model: str, base_url: str = DEFAULT_BASE, timeout_s: float = 45.0,
+    def __init__(self, api_key: str, model: str, base_url: str = DEFAULT_BASE, timeout_s: float = 30.0,
                  retries: int = 1, http: httpx.Client | None = None, sleep=time.sleep) -> None:
         self._key, self._model = api_key.strip(), model.strip()
         self._base = (base_url or DEFAULT_BASE).rstrip("/")
@@ -54,8 +54,8 @@ class GemmaClient:
         for attempt in range(self._retries + 1):
             try:
                 r = self._http.post(url, json=body, headers={"x-goog-api-key": self._key})
-            except httpx.TimeoutException:
-                last = LlmUnavailable("timeout", "the language model did not answer in time")
+            except httpx.TimeoutException:                      # a slow model will not be faster a second time: fail over now
+                raise LlmUnavailable("timeout", "the language model did not answer in time") from None
             except httpx.TransportError:
                 last = LlmUnavailable("unreachable", "the language model service could not be reached")
             else:
@@ -78,7 +78,8 @@ class GemmaClient:
         try:
             data = r.json()
             parts = data["candidates"][0]["content"]["parts"]
-            text = "".join(p.get("text", "") for p in parts if isinstance(p, dict)).strip()
+            # "thought" parts are the model's private reasoning, not its answer
+            text = "".join(p.get("text", "") for p in parts if isinstance(p, dict) and not p.get("thought")).strip()
         except (ValueError, KeyError, IndexError, TypeError):
             raise LlmUnavailable("empty_reply", "the language model returned no usable text") from None
         if not text:
