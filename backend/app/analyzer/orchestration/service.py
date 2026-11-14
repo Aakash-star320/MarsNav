@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Callable
 from uuid import UUID, uuid4
 
+from app.analyzer.preprocessing.terrain_bundle import TerrainBundleError, TerrainManifest, load_terrain_bundle
 from app.analyzer.validation.cache_keys import analysis_result_key, stable_hash
 from app.schemas import AnalysisJob, CreateAnalysisRequest, JobStage, RegionalAnalysisResult
 
@@ -105,6 +106,17 @@ class AnalysisService:
         if job is None or job.stage != JobStage.completed or not path.is_file():
             return None
         return RegionalAnalysisResult.model_validate_json(path.read_text(encoding="utf-8"))
+
+    def load_terrain(self, job_id: UUID):
+        """Verified terrain arrays of a completed analysis, or None (unknown, unfinished, missing or corrupt)."""
+        job = self.get_job(job_id)
+        path = self._deps.out_dir / str(job_id) / "terrain.manifest.json"
+        if job is None or job.stage != JobStage.completed or not path.is_file():
+            return None
+        try:
+            return load_terrain_bundle(path)
+        except (TerrainBundleError, ValueError):
+            return None
 
     def wait_idle(self) -> None:
         """Block until queued work finishes (used by tests and graceful shutdown)."""

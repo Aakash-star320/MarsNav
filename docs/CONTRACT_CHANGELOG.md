@@ -1,5 +1,9 @@
 # Contract change log
 
+## 0.2.2 draft — map display package
+
+Additive. New Python models `MapPackage`, `MapLayerEntry`, `DemPayload` and `DemProjection` (`app/schemas/map_display.py`) mirror the display types the map module already defines in `frontend/src/features/mars-map/types.ts`; no TypeScript change was needed. New endpoints `GET /analyses/{id}/map` and `GET /analyses/{id}/layers/{kind}.png`. See [`TERRAIN_CONTRACT.md`](TERRAIN_CONTRACT.md).
+
 ## 0.2.1 draft — terrain artifact layer kinds
 
 Additive and backwards compatible. `ProcessedLayer.kind` gains `validity` (boolean valid-data mask) and `source` (per-cell source product index) so routing and the map can consume aligned analyzer terrain. The terrain file layout is specified in [`TERRAIN_CONTRACT.md`](TERRAIN_CONTRACT.md). Python and TypeScript mirrors are updated together; no existing field changed.

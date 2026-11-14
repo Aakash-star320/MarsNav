@@ -14,6 +14,7 @@ Honest inventory of the analyzer. Anything not marked **Implemented** is not fin
 | Cache keys | `analyzer/validation/cache_keys.py` | Stable hashes for raw, processed and analysis keys |
 | ODE REST adapter | `connectors/ode/ode_rest.py` | Query builder and parser, verified against recorded live replies |
 | MOLA 463 m DEM reader | `connectors/usgs/mola.py` | Windowed reads by HTTP range request; verified against the live file |
+| Map display package | `analyzer/publishing/map_display.py`, `api/routes/analyses.py` | Layer images (PNG) and a display DEM in the map module's format; frontend client in `frontend/src/api/analysis.ts` |
 | Analysis jobs | `analyzer/orchestration/`, `api/routes/analyses.py` | Create, poll, result; one heavy job at a time; de-duplication; saved state; interrupted-job recovery |
 
 ## Verified sources
@@ -42,7 +43,7 @@ Not stated by the sources and therefore not claimed: the MOLA vertical unit and 
 - Job cancellation (the job contract has no cancelled stage).
 - Mission and route orchestration, and the optimizer (owned by routing).
 - Assistant tools and local RAG.
-- Overlay tiles and legends for the map.
+- Real imagery under the map (the map module draws only the layers it is given; a base-imagery layer is not wired).
 
 ## Limits and settings
 
