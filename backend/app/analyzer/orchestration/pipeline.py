@@ -16,9 +16,11 @@ from uuid import UUID
 
 from app.analyzer.discovery.mars_geometry import GeometryError, pad_bounds
 from app.analyzer.discovery.region_planner import RegionPlanningError, plan_analyze_region
-from app.analyzer.preprocessing.terrain_bundle import build_terrain_bundle
+from app.analyzer.preprocessing.terrain_bundle import build_terrain_bundle, load_terrain_bundle
 from app.analyzer.publishing.science_layer import ScienceLayer, save_science_layer
-from app.analyzer.science.pipeline import ScienceDeps, ScienceOutcome, run_hydrated_minerals, wants_hydrated_minerals
+from app.analyzer.science.objectives import HYDRATED, TERRAIN_OBJECTIVES, get_objective, resolve_objective, supported_labels
+from app.analyzer.science.pipeline import ScienceDeps, ScienceOutcome, run_hydrated_minerals
+from app.analyzer.science.terrain_objectives import DETECTORS, TerrainTargets
 from app.analyzer.selection.selector import select_products
 from app.connectors.usgs import mola
 from app.schemas import (
@@ -26,6 +28,7 @@ from app.schemas import (
     DatasetCategory,
     DatasetRecord,
     JobStage,
+    ProcessingProvenance,
     RegionalAnalysisResult,
 )
 
@@ -61,13 +64,14 @@ def run_region_analysis(
     analysis_id: UUID, request: CreateAnalysisRequest, deps: AnalyzerDeps, progress: Progress, now: datetime,
 ) -> RegionalAnalysisResult:
     warnings: list[str] = []
+    objective_id = resolve_objective(request.objective)          # None: only terrain statistics are produced
     science_pool: ThreadPoolExecutor | None = None
     science_future: Future[ScienceOutcome] | None = None
     try:
         progress(JobStage.discovery, 10, "Planning the analysis region and discovering terrain products")
         bounds = pad_bounds(request.roi.bounds, request.roi.analysis_margin_m)
         plan = plan_analyze_region(bounds, max_area_km2=deps.max_area_km2)
-        if deps.science is not None and wants_hydrated_minerals(request.objective):
+        if deps.science is not None and objective_id == HYDRATED:
             # CRISM discovery and reads only need the planned bounds, so they run while the elevation is read.
             science_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="science")
             science_future = science_pool.submit(run_hydrated_minerals, plan.bounds, deps.science)
@@ -116,14 +120,30 @@ def run_region_analysis(
         if science.evidence is not None:
             ev = science.evidence
             save_science_layer(deps.out_dir / str(analysis_id), ScienceLayer(values=ev.values, bounds=ev.bounds, product_id=ev.product_id, pixel_m=ev.pixel_m))
+    terrain: TerrainTargets | None = None
+    terrain_provenance: ProcessingProvenance | None = None
+    if objective_id in TERRAIN_OBJECTIVES:
+        progress(JobStage.science, 90, f"Finding {get_objective(objective_id).label.lower()} on the terrain")
+        manifest, arrays = load_terrain_bundle(deps.out_dir / str(analysis_id) / "terrain.manifest.json")
+        terrain = DETECTORS[objective_id](arrays, manifest.bounds, manifest.grid, analysis_id, dataset.id,
+                                          source_uri=str(dataset.provenance_url) if dataset.provenance_url else None)
+        terrain_provenance = ProcessingProvenance(recipe_version=terrain.recipe, parameters=terrain.parameters,
+                                                  output_checksum_sha256=manifest.sha256, generated_at=now)
     warnings.append("Elevation comes from a coarse 463 m global product: suitable for broad planning, not astronaut-scale hazard detection.")
-    if science.attempted and (science.targets or science.provenance or science.warnings):
+    if terrain is not None:
+        warnings.append(f"Objective '{get_objective(objective_id).label}': the targets are patches or points of the 463 m grid found by a heuristic rule on the terrain "
+                        "(each target lists its measured values and the rule); they are not surveyed sites.")
+        warnings.extend(terrain.warnings)
+    elif science.attempted and (science.targets or science.provenance or science.warnings):
         warnings.extend(science.warnings)
+    elif objective_id == HYDRATED:
+        warnings.append(f"Objective '{request.objective}' is not interpreted: hydrated-mineral screening needs the CRISM data service, which is not connected here, so no science targets are returned.")
     else:
-        warnings.append(f"Objective '{request.objective}' is not interpreted: it does not name a supported science objective (hydrated minerals), so no science targets are returned.")
+        warnings.append(f"Objective '{request.objective}' is not interpreted: it does not name a supported science objective ({supported_labels()}), so no science targets are returned and only terrain statistics are provided.")
     return RegionalAnalysisResult(
         id=analysis_id, mission_id=request.mission_id, roi=request.roi.model_copy(update={"local_projection": bundle.manifest.grid.crs_wkt}),
         projection_wkt=bundle.manifest.grid.crs_wkt, grid=bundle.manifest.grid, datasets=[dataset, *science.datasets], layers=bundle.layers,
-        science_targets=science.targets, warnings=warnings,
-        processing_provenance=[bundle.layers[0].provenance, *([science.provenance] if science.provenance else [])], analysis_version=ANALYSIS_VERSION,
+        science_targets=terrain.targets if terrain is not None else science.targets, warnings=warnings,
+        processing_provenance=[bundle.layers[0].provenance, *([science.provenance] if science.provenance else []), *([terrain_provenance] if terrain_provenance else [])],
+        analysis_version=ANALYSIS_VERSION,
     )
