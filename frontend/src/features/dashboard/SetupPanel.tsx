@@ -133,7 +133,7 @@ export default function SetupPanel() {
   useEffect(() => { loadObjectives(); refreshDataBudget(); }, [loadObjectives, refreshDataBudget]);
   const { mode, pan, togglePanel } = s;
   if (!pan.L) {
-    return <aside id="L" className="col"><button className="rail" onClick={() => togglePanel('L')} title="Show setup panel">▶ Setup</button></aside>;
+    return <aside id="L" className="col"><button className="rail" onClick={() => togglePanel('L')} title="Show setup panel"><span className="rc"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg></span><span className="rl">Setup</span></button></aside>;
   }
   const [primaryLabel, primaryAction] = PRIMARY[mode];
   return (

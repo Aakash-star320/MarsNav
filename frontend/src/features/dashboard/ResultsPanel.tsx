@@ -114,7 +114,7 @@ export default function ResultsPanel() {
   const { pan, mode, targets, selT, nav, togglePanel } = s;
   const hasRes = !!(s.summary || targets.length || s.routes.length || s.mission);
   if (!pan.R) {
-    return <aside id="R" className="col"><button className="rail" onClick={() => togglePanel('R')} title="Show results panel">◀ Results{hasRes ? ' ●' : ''}</button></aside>;
+    return <aside id="R" className="col"><button className="rail" onClick={() => togglePanel('R')} title="Show results panel"><span className="rc"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6" /></svg></span><span className="rl">Results</span>{hasRes && <i className="rdot" title="Results are ready" />}</button></aside>;
   }
   const c = combined(s), b = budgetOf(s);
   return (
