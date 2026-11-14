@@ -10,8 +10,17 @@ export const elevation = (x: number, y: number) =>
 export const slopeAt = (x: number, y: number) =>
   Math.atan(Math.hypot((elevation(x + 1, y) - elevation(x - 1, y)) / 40, (elevation(x, y + 1) - elevation(x, y - 1)) / 40)) * 57.3;
 
-export const fmtCoord = (p?: Pt | null) =>
-  p ? `${(77.4 + p.x * 0.01).toFixed(2)}°E, ${(18.4 - p.y * 0.01).toFixed(2)}°N` : 'not set';
+/** Demo canvas projection: planetocentric latitude, east-positive longitude (degrees). */
+export const DEMO_ORIGIN = { lonE: 77.4, lat: 18.4 };
+export const DEG_PER_PX = 0.01;
+export const pxToLonLat = (p: Pt) => ({ latitude_deg: DEMO_ORIGIN.lat - p.y * DEG_PER_PX, longitude_deg_east: DEMO_ORIGIN.lonE + p.x * DEG_PER_PX });
+export const lonLatToPx = (c: { latitude_deg: number; longitude_deg_east: number }): Pt => ({ x: (c.longitude_deg_east - DEMO_ORIGIN.lonE) / DEG_PER_PX, y: (DEMO_ORIGIN.lat - c.latitude_deg) / DEG_PER_PX });
+
+export const fmtCoord = (p?: Pt | null) => {
+  if (!p) return 'not set';
+  const c = pxToLonLat(p);
+  return `${c.longitude_deg_east.toFixed(2)}°E, ${c.latitude_deg.toFixed(2)}°N`;
+};
 export const fmtDuration = (m: number) => `${Math.floor(m / 60)} h ${Math.round(m % 60)} min`;
 
 export function segment(a: Pt, b: Pt, bend: number, n = 30): Pt[] {
