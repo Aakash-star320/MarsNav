@@ -167,3 +167,16 @@ def build_map_package(
 def _layer_id(manifest: TerrainManifest, kind: str):
     from uuid import uuid5
     return uuid5(manifest.analysis_id, f"map-{kind}")
+
+
+def render_hazard_png(arrays: dict[str, np.ndarray], slope_limit_deg: float, max_dim: int = DEFAULT_MAX_DIM) -> bytes:
+    """Cells steeper than the limit in translucent red; everything else, including unknown cells, transparent.
+
+    This marks steep terrain at the source resolution. It is not a safety assessment and says nothing about
+    obstacles smaller than a cell."""
+    disp, _ = display_arrays(arrays, max_dim)
+    slope = disp["slope_deg"]
+    steep = np.isfinite(slope) & (slope > slope_limit_deg)
+    rgba = np.zeros(slope.shape + (4,), dtype=np.uint8)
+    rgba[steep] = (229, 100, 95, 175)
+    return png_bytes(rgba)

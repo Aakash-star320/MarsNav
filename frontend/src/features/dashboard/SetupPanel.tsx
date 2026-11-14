@@ -2,7 +2,7 @@ import type { ReactNode } from 'react';
 import { useStore } from '../../store/dashboardStore';
 import type { DataState, Mode, Pick } from '../../types/ui';
 import { fmtCoord, KM_PER_PX } from '../../utils/geo';
-import { LAYERS } from '../../utils/layers';
+import { LAYERS, realLabel } from '../../utils/layers';
 
 const MODES: [Mode, string, string][] = [
   ['analyze', 'Analyze Region', 'Study an area. No destination needed.'],
@@ -75,18 +75,18 @@ function PresetSelect() {
 }
 
 function Layers() {
-  const { layers, lyOpen, setField, toggleLayer, setOpacity } = useStore();
+  const { layers, lyOpen, setField, toggleLayer, setOpacity, real } = useStore();
   const on = Object.values(layers).filter((l) => l.on).length;
   return (
     <details open={lyOpen} onToggle={(e) => setField('lyOpen', (e.currentTarget as HTMLDetailsElement).open)}>
       <summary>Map layers ({on} on)</summary>
-      {LAYERS.map((l) => (
+      {LAYERS.map((base) => { const l = realLabel(base, real); return (
         <div className="ly" key={l.id}>
           <label><input type="checkbox" checked={layers[l.id].on} disabled={l.na} onChange={() => toggleLayer(l.id)} /> {l.n}</label>
           <small>{l.s}{l.r ? ' · ' + l.r : ''}</small>
           {!l.na && <input type="range" min={10} max={100} value={Math.round(layers[l.id].op * 100)} aria-label={`${l.n} opacity`} onChange={(e) => setOpacity(l.id, Number(e.target.value) / 100)} />}
         </div>
-      ))}
+      ); })}
     </details>
   );
 }

@@ -3,8 +3,35 @@ import { budgetOf, combined } from '../../utils/derive';
 import { coarseShare, fmtCoord, fmtDuration } from '../../utils/geo';
 import BudgetBar from './BudgetBar';
 
+const n = (v: number | null | undefined, d = 0, unit = '') => (v == null || !Number.isFinite(v) ? 'n/a' : v.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d }) + unit);
+
+function RealSummary() {
+  const { summary: s, real } = useStore();
+  if (!real || !s) return null;
+  const st = real.stats;
+  return (
+    <>
+      <h2>Region summary <span className="p g">real data</span></h2>
+      <div className="cd">
+        <div className="g">
+          <span>Size <b>{s.w.toFixed(1)}×{s.h.toFixed(1)} km</b></span><span>Grid <b>{st.cols}×{st.rows} cells</b></span>
+          <span>Cell size <b>{n(st.cell_size_x_m)}×{n(st.cell_size_y_m)} m</b></span><span>Valid data <b>{n(st.valid_percent, 1, '%')}</b></span>
+          <span style={{ gridColumn: '1 / -1' }}>Elevation <b>{n(st.elevation_min_m)} to {n(st.elevation_max_m)} m</b></span>
+          <span>Relief <b>{st.elevation_max_m != null && st.elevation_min_m != null ? n(st.elevation_max_m - st.elevation_min_m, 0, ' m') : 'n/a'}</b></span>
+          <span>Mean slope <b>{n(st.slope_mean_deg, 1, '°')}</b></span><span>Max slope <b>{n(st.slope_max_deg, 1, '°')}</b></span>
+          <span>Cells &gt; {st.slope_limit_deg}° <b>{st.slope_exceedance_fraction == null ? 'n/a' : n(100 * st.slope_exceedance_fraction, 1, '%')}</b></span>
+          <span>Candidates <b>{st.science_candidates}</b></span>
+        </div>
+        <p>Elevation: USGS MOLA 463 m global DEM; the percentage counts {st.slope_exceedance_cells.toLocaleString()} of {st.slope_denominator_cells.toLocaleString()} cells that have a defined slope. Coarse data supports broad planning only and is not a safety assessment.</p>
+      </div>
+      {real.warnings.map((w) => <p key={w} className="nt wn">{w}</p>)}
+    </>
+  );
+}
+
 function AnalyzeSummary() {
-  const { summary: s, cats, slope } = useStore();
+  const { summary: s, cats, slope, real } = useStore();
+  if (real && s) return <RealSummary />;
   return (
     <>
       <h2>Region summary</h2>
@@ -107,9 +134,17 @@ export default function ResultsPanel() {
         <h2>Science targets</h2>
         {targets.length ? targets.map((t) => (
           <div key={t.id} className={'cd' + (selT === t.id ? ' on' : '')} style={{ ['--c' as string]: '#c0653a' }}>
-            <h3><span>{t.id} · {t.cat}</span><span>{t.score}</span></h3>
+            <h3><span>{t.label ?? t.id} · {t.cat}</span><span>{t.score}</span></h3>
             <div className="g"><span>Location <b>{fmtCoord(t)}</b></span><span>Confidence <b>{t.conf}</b></span></div>
-            <p>Candidate spectral signature, not a confirmed identification. Evidence: demo product. Score is not a probability. Route distance: not calculated.</p>
+            {t.evidence ? (
+              <>
+                <p>Candidate spectral signature, not a confirmed identification: check the spectrum before relying on it. The score is a heuristic rank, not a probability.</p>
+                <details><summary>Evidence and how it was ranked</summary>
+                  {t.evidence.map((e, i) => <p key={i} className="nt">{e}</p>)}
+                  {t.rank && <p className="nt">{t.rank}</p>}
+                </details>
+              </>
+            ) : <p>Candidate spectral signature, not a confirmed identification. Evidence: demo product. Score is not a probability. Route distance: not calculated.</p>}
             <div className="row">
               <button onClick={() => s.selectTarget(t.id)}>Focus</button>
               <button onClick={() => s.targetAsDest(t.id)}>Set as destination</button>

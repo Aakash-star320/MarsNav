@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import type { DataState, Mode, PanelKey, Pick, Pt, Region, Tab, Target } from '../types/ui';
 import { STAGES, discoverTargets, planMission, planRoutes, summarizeRegion } from '../mocks/mock';
 import { combined } from '../utils/derive';
+import { API_BASE, AnalysisError, cancelAnalysis, createAnalysis, fetchMapPackage, waitForAnalysis } from '../api/analysis';
+import { regionToBounds, toDashboardTarget } from '../api/mapping';
+import { KM_PER_PX } from '../utils/geo';
 import { defaultLayers } from '../utils/layers';
 
 export interface Actions {
@@ -50,6 +53,7 @@ export type Store = DataState & Actions;
 const FULL_MAP: Region = { x: 0, y: 0, w: 800, h: 500 };
 const CONSTRAINT_KEYS = new Set<string>(['slope', 'oxy', 'res', 'exam', 'maxSites', 'maxd', 'preset', 'ret', 'obj']);
 let jobTimer: number | undefined;
+let realRunToken = 0;          // bumped on cancel so a late reply from an abandoned analysis is ignored
 let navTimer: number | undefined;
 
 const initial: DataState = {
@@ -58,7 +62,7 @@ const initial: DataState = {
   targets: [], summary: null, routes: [], sel: 0, mission: null,
   preset: 'bal', ret: true, slope: 20, maxd: 50, oxy: 4, res: 30, exam: 20, maxSites: 3, obj: 'Hydrated minerals',
   obs: [], prev: null, nav: null, tab: 'elev', focus: null, online: true, cache: false,
-  job: null, err: '', stale: false, selT: null,
+  job: null, err: '', stale: false, selT: null, real: null,
   pk: [{ n: 'Jezero region package (demo)', sz: '148 MB', st: 'Downloaded', up: '2026-11-12' }],
   pan: { L: true, R: false, B: false }, bh: 260, adv: false, lyOpen: false,
   layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '',
@@ -99,6 +103,50 @@ export const useStore = create<Store>((set, get) => {
     }, 450);
   };
 
+  const BACKEND_STAGE: Record<string, number> = { queued: 0, discovery: 0, selection: 1, downloading: 2, preprocessing: 3, terrain: 4, science: 5 };
+
+  const runRealAnalysis = async (region: Region) => {
+    const token = ++realRunToken;
+    const alive = () => token === realRunToken;
+    const spec = get().cats.spec;
+    const stages = ['Plan region', 'Select products', 'Read elevation', 'Validate', 'Derive terrain', ...(spec ? ['Search CRISM'] : []), 'Complete'];
+    set({ job: { title: 'Analyze Region', stages, i: 0, real: true }, err: '' });
+    try {
+      const created = await createAnalysis(regionToBounds(region), spec ? 'find hydrated minerals' : 'terrain overview', 'Dashboard region');
+      if (!alive()) { void cancelAnalysis(created.id).catch(() => undefined); return; }
+      set((s) => ({ job: s.job ? { ...s.job, id: created.id } : s.job }));
+      const done = await waitForAnalysis(created.id, (j) => {
+        if (!alive()) return;
+        const i = j.stage === 'completed' ? stages.length - 1 : Math.min(BACKEND_STAGE[j.stage] ?? 0, stages.length - 2);
+        set((s) => ({ job: s.job ? { ...s.job, i } : s.job }));
+      });
+      if (!alive()) return;
+      const pkg = await fetchMapPackage(created.id, get().slope);
+      if (!alive()) return;
+      const stats = pkg.statistics, el = pkg.layers.find((l) => l.layer.kind === 'elevation'), sl = pkg.layers.find((l) => l.layer.kind === 'slope');
+      if (!stats || !el || !sl) throw new AnalysisError('The analysis returned no terrain layers.');
+      const sci = pkg.layers.find((l) => l.layer.kind === 'science');
+      const layer = (l: { layer: { uri: string; bounds: import('../types/contracts').BoundingBox } }) => ({ href: l.layer.uri, bounds: l.layer.bounds });
+      set((s) => ({
+        job: null, cache: true, err: '',
+        real: { id: created.id, hazardBase: API_BASE + '/analyses/' + created.id + '/layers/hazard.png', stats, notes: pkg.notes, warnings: done.warnings,
+                layers: { elevation: layer(el), slope: layer(sl), science: sci ? layer(sci) : undefined } },
+        summary: { w: region.w * KM_PER_PX, h: region.h * KM_PER_PX, mn: stats.elevation_min_m ?? 0, mx: stats.elevation_max_m ?? 0,
+                   sl: stats.slope_mean_deg ?? 0, hz: 100 * (stats.slope_exceedance_fraction ?? 0) },
+        targets: (pkg.science_targets ?? []).map(toDashboardTarget),
+        layers: { ...s.layers, elev: { ...s.layers.elev, on: true }, ...(sci ? { spec: { ...s.layers.spec, on: true } } : {}) },
+      }));
+      openPanels(true, false);
+    } catch (e) {
+      if (!alive()) return;
+      const err = e as AnalysisError;
+      const msg = e instanceof TypeError ? 'Cannot reach the analysis service. Start the backend and try again.'
+        : err.code === 'area_limit' ? 'That region is too large for one analysis. Select a smaller area.'
+        : err.code === 'cancelled' ? 'Cancelled. Nothing was changed.' : 'Analysis failed: ' + err.message;
+      set({ job: null, err: msg });
+    }
+  };
+
   const applyRoutes = (from: Pt) => {
     const s = get();
     if (!s.dest) return;
@@ -133,17 +181,15 @@ export const useStore = create<Store>((set, get) => {
     toggleCat: (k) => set((s) => ({ cats: { ...s.cats, [k]: !s.cats[k] } })),
     toggleLayer: (id) => set((s) => ({ layers: { ...s.layers, [id]: { ...s.layers[id], on: !s.layers[id].on } } })),
     setOpacity: (id, op) => set((s) => ({ layers: { ...s.layers, [id]: { ...s.layers[id], op } } })),
-    setRegion: (r) => set({ region: r, pick: null, summary: null, targets: [] }),
-    useVisibleMap: () => set({ region: FULL_MAP, pick: null, summary: null }),
+    setRegion: (r) => set({ region: r, pick: null, summary: null, targets: [], real: null }),
+    useVisibleMap: () => set({ region: FULL_MAP, pick: null, summary: null, real: null }),
 
     analyze: () => {
       const s = get();
       if (!s.region) { set({ err: 'Select a region first: drag on the map, or press Use visible map.' }); return; }
-      const region = s.region;
-      runJob('Analyze Region', [0, 1, 2, 3, 4, 5, 8], () => {
-        set({ targets: discoverTargets(region), summary: summarizeRegion(region, get().slope) });
-        openPanels(true, false);
-      });
+      if (s.job) return;
+      if (!s.online) { set({ err: 'You are offline. Region analysis reads real data from NASA/USGS sources and needs network access.' }); return; }
+      void runRealAnalysis(s.region);
     },
     generate: () => {
       const s = get();
@@ -163,12 +209,17 @@ export const useStore = create<Store>((set, get) => {
       get().navEnd();
       const s = get();
       set({
-        pan: { ...s.pan, R: false, B: false }, start: null, dest: null, wps: [], region: null, targets: [], summary: null,
+        pan: { ...s.pan, R: false, B: false }, start: null, dest: null, wps: [], region: null, targets: [], summary: null, real: null,
         routes: [], mission: null, obs: [], prev: null, focus: null, err: '', stale: false, selT: null,
         pick: s.mode === 'analyze' ? 'region' : null,
       });
     },
-    cancelJob: () => { window.clearInterval(jobTimer); set({ job: null, err: 'Cancelled. Nothing was changed.' }); },
+    cancelJob: () => {
+      window.clearInterval(jobTimer);
+      const j = get().job;
+      if (j?.real) { realRunToken++; if (j.id) void cancelAnalysis(j.id).catch(() => undefined); }
+      set({ job: null, err: 'Cancelled. Nothing was changed.' });
+    },
     dismissError: () => set({ err: '' }),
     clearWps: () => { set({ wps: [] }); clearResults(); },
     selectRoute: (i) => set({ sel: i, focus: null }),

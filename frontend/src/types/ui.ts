@@ -1,3 +1,5 @@
+import type { BoundingBox } from './contracts';
+import type { RegionStatistics } from '../api/analysis';
 export interface Pt { x: number; y: number }
 export interface Region { x: number; y: number; w: number; h: number }
 export interface Obstacle extends Pt { r: number }
@@ -11,7 +13,7 @@ export interface Stats {
   p: Pt[]; d: number; up: number; dn: number; mx: number; av: number;
   cum: number[]; el: number[]; sl: number[]; over: number[]; t: number;
 }
-export interface Target { id: string; cat: string; x: number; y: number; score: number; conf: string }
+export interface Target { id: string; cat: string; x: number; y: number; score: number; conf: string; label?: string; evidence?: string[]; rank?: string }
 export interface Dest extends Pt { id?: string }
 export interface Route { k: Preset; n: string; c: string; out: Stats; ret: Stats | null; bend: number }
 export interface MissionLeg { t: Target; s: Stats }
@@ -20,7 +22,14 @@ export interface Mission {
   ex: { t: Target; r: string }[];
 }
 export interface Summary { w: number; h: number; mn: number; mx: number; sl: number; hz: number }
-export interface Job { title: string; stages: string[]; i: number }
+export interface Job { title: string; stages: string[]; i: number; real?: boolean; id?: string }
+export interface RealLayer { href: string; bounds: BoundingBox }
+/** A finished analysis from the backend: images placed by geographic bounds, and real statistics. */
+export interface RealAnalysis {
+  id: string; hazardBase: string;
+  layers: { elevation: RealLayer; slope: RealLayer; roughness?: RealLayer; science?: RealLayer };
+  stats: RegionStatistics; warnings: string[]; notes: string[];
+}
 export interface Nav { i: number; paused: boolean }
 export interface Pkg { n: string; sz: string; st: string; up: string }
 export interface ChatMsg { u: string; r: string; err?: boolean; note?: string }
@@ -40,5 +49,5 @@ export interface DataState {
   tab: Tab; focus: Pt | null; online: boolean; cache: boolean;
   job: Job | null; err: string; stale: boolean; selT: string | null;
   pk: Pkg[]; pan: Record<PanelKey, boolean>; bh: number; adv: boolean; lyOpen: boolean;
-  layers: Record<string, LayerState>; chat: ChatMsg[]; aiOpen: boolean; aiDraft: string;
+  real: RealAnalysis | null; layers: Record<string, LayerState>; chat: ChatMsg[]; aiOpen: boolean; aiDraft: string;
 }

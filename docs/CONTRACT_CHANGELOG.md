@@ -1,5 +1,9 @@
 # Contract change log
 
+## 0.2.6 draft — hazard layer image
+
+Additive. `GET /analyses/{id}/layers/hazard.png?slope_limit_deg=` serves cells steeper than the limit (translucent red, everything else transparent) at display resolution. It marks steep terrain at the source resolution and is not a safety assessment.
+
 ## 0.2.5 draft — job cancellation and science layer
 
 Additive. `JobStage` gains `cancelled` (Python and TypeScript); `POST /analyses/{id}/cancel` cancels a queued or running analysis (409 once finished). `GET /analyses/{id}/layers/science.png` and a `science` layer entry in the map package appear for analyses with CRISM candidates; `MapPackage` also carries `science_targets`. A `dem` of `null` means the area was too small for a 3D surface.

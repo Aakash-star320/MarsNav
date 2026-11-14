@@ -11,7 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response,
 from app.analyzer.integration.routing_terrain import TerrainAccessError, load_routing_terrain
 from app.analyzer.orchestration.pipeline import AnalyzerDeps
 from app.analyzer.orchestration.service import AnalysisService
-from app.analyzer.publishing.map_display import build_map_package, render_layer_png
+from app.analyzer.publishing.map_display import build_map_package, render_hazard_png, render_layer_png
 from app.analyzer.publishing.science_layer import render_science_png, science_map_entry
 from app.analyzer.science.pipeline import ScienceDeps
 from app.connectors.common.http import get_json, get_text
@@ -72,7 +72,7 @@ def analysis_result(analysis_id: UUID, service: AnalysisService = Depends(get_se
     return result
 
 
-LayerKind = Literal["elevation", "slope", "roughness", "science"]
+LayerKind = Literal["elevation", "slope", "roughness", "science", "hazard"]
 _ARRAY = {"elevation": "elevation_m", "slope": "slope_deg", "roughness": "roughness_m"}
 
 
@@ -99,7 +99,10 @@ def analysis_map(
 
 
 @router.get("/analyses/{analysis_id}/layers/{kind}.png", name="analysis_layer_png", response_class=Response)
-def analysis_layer_png(analysis_id: UUID, kind: LayerKind, service: AnalysisService = Depends(get_service)) -> Response:
+def analysis_layer_png(
+    analysis_id: UUID, kind: LayerKind, slope_limit_deg: float = Query(default=12.0, gt=0, le=45),
+    service: AnalysisService = Depends(get_service),
+) -> Response:
     if kind == "science":
         sci = service.load_science(analysis_id)
         if sci is None:
@@ -109,6 +112,9 @@ def analysis_layer_png(analysis_id: UUID, kind: LayerKind, service: AnalysisServ
     if terrain is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "no completed analysis terrain for this id")
     manifest, arrays = terrain
+    if kind == "hazard":
+        return Response(render_hazard_png(arrays, slope_limit_deg), media_type="image/png",
+                        headers={"ETag": f'"{manifest.sha256[:16]}-hazard-{slope_limit_deg:g}"', "Cache-Control": "private, max-age=3600"})
     return Response(
         render_layer_png(arrays, _ARRAY[kind]), media_type="image/png",
         headers={"ETag": f'"{manifest.sha256[:16]}-{kind}"', "Cache-Control": "private, max-age=3600"},
