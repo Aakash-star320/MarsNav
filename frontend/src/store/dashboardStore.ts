@@ -79,7 +79,7 @@ const initial: DataState = {
   cats: { elev: true, slope: true, rough: true, haz: true, spec: true },
   targets: [], summary: null, routes: [], sel: 0, mission: null,
   preset: 'bal', ret: true, slope: 20, maxd: 50, oxy: 4, res: 30, exam: 20, maxSites: 3, obj: 'hydrated_minerals',
-  obs: [], prev: null, nav: null, tab: 'elev', focus: null, online: true, cache: false,
+  obs: [], prev: null, nav: null, tab: 'elev', focus: null, showOnly: null, online: true, cache: false,
   job: null, err: '', stale: false, selT: null, real: null,
   pk: [{ n: 'Jezero region package (demo)', sz: '148 MB', st: 'Downloaded', up: '2026-11-12' }],
   pan: { L: true, R: false, B: false }, bh: 220, adv: false, lyOpen: false,
@@ -137,7 +137,7 @@ export const useStore = create<Store>((set, get) => {
     const spec = info?.kind === 'spectral' && get().cats.spec;
     const objective = info && (info.kind === 'terrain' || spec) ? info : undefined;
     const stages = ['Plan region', 'Select products', 'Read elevation', 'Validate', 'Derive terrain', ...(spec ? ['Search CRISM'] : []), 'Complete'];
-    set({ job: { title: terrainOnly ? 'Reading terrain' : 'Analyze Region', stages, i: 0, real: true }, err: '' });
+    set({ showOnly: null, job: { title: terrainOnly ? 'Reading terrain' : 'Analyze Region', stages, i: 0, real: true }, err: '' });
     try {
       const created = await createAnalysis(regionToBounds(region), objective ? objective.label : 'terrain overview', 'Dashboard region');
       if (!alive()) { void cancelAnalysis(created.id).catch(() => undefined); return; }
@@ -236,7 +236,7 @@ export const useStore = create<Store>((set, get) => {
     if (!real || !real.missionId || !dest) return;
     const token = ++routeToken;
     const alive = () => token === routeToken;
-    set({ job: { title: 'Generate Routes', stages: ['Plan on the real terrain', 'Compare routes', 'Done'], i: 0, real: true }, err: '' });
+    set({ showOnly: null, job: { title: 'Generate Routes', stages: ['Plan on the real terrain', 'Compare routes', 'Done'], i: 0, real: true }, err: '' });
     const inputs = { missionId: real.missionId, analysisId: real.id, start: from, dest, wps: s.wps, base: s.base, preset: s.preset, slope: s.slope, ret: s.ret, maxKm: s.maxd, oxyH: s.oxy,
                      reserveMin: s.res, examMin: s.exam, speedMPerMin: (WALK_KMH * 1000) / 60, obs: s.obs };
     try {
@@ -283,7 +283,7 @@ export const useStore = create<Store>((set, get) => {
     const s = get(), real = s.real;
     if (!real || !real.missionId) return;
     const token = ++missionToken;
-    set({ job: { title: 'Plan Mission', stages: ['Choose targets on the real terrain', 'Route each leg', 'Done'], i: 0, real: true }, err: '' });
+    set({ showOnly: null, job: { title: 'Plan Mission', stages: ['Choose targets on the real terrain', 'Route each leg', 'Done'], i: 0, real: true }, err: '' });
     try {
       const res = await planMissionRemote(buildMissionRequest({ missionId: real.missionId, analysisId: real.id, start: from, base: s.base, targetIds: s.targets.map((t) => t.id),
         slope: s.slope, maxKm: s.maxd, oxyH: s.oxy, reserveMin: s.res, examMin: s.exam, maxSites: s.maxSites, obs: s.obs }));
@@ -440,7 +440,7 @@ export const useStore = create<Store>((set, get) => {
       const s = get();
       set({
         pan: { ...s.pan, R: false, B: false }, start: null, dest: null, wps: [], region: null, targets: [], summary: null, real: null,
-        routes: [], mission: null, obs: [], prev: null, focus: null, err: '', stale: false, selT: null, routeSource: 'simulated', missionSource: 'simulated', routeNotes: [], guideText: null,
+        routes: [], mission: null, obs: [], prev: null, focus: null, showOnly: null, err: '', stale: false, selT: null, routeSource: 'simulated', missionSource: 'simulated', routeNotes: [], guideText: null,
         pick: s.mode === 'analyze' ? 'region' : null,
       });
     },
@@ -488,7 +488,7 @@ export const useStore = create<Store>((set, get) => {
         .catch(() => set({ assistantMode: 'rule_based', assistantModel: null }));
     },
     /** Collapses the chat to a small bar and brings the item into view on the map. */
-    showOnMap: (a) => a.open ? openPanels(true, false, true) : a.at && set((s) => ({ focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
+    showOnMap: (a) => a.open ? openPanels(true, false, true) : a.at && set((s) => ({ showOnly: { id: a.id ?? null }, focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
     setAiDraft: (v) => set({ aiDraft: v }),
 
     navStart: () => {

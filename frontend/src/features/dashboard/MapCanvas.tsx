@@ -114,7 +114,8 @@ export default function MapCanvas() {
   const [rubber, setRubber] = useState<{ a: Pt; b: Pt } | null>(null);
   const L_ = s.layers;
   const drawing = s.pick === 'region';
-  const segs = segsOf(s);
+  const only = s.showOnly;                 // set by "Show on map" in the assistant: everything else is hidden until the next plan
+  const segs = only ? [] : segsOf(s);
   const stops = s.start && s.dest ? [s.start, ...s.wps, s.dest] : [];
   const main = s.mode === 'route' ? segs[0] : undefined;
   const legs = (() => {
@@ -236,26 +237,26 @@ export default function MapCanvas() {
           {!s.real && !s.online && <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.5} strokeDasharray="2 6" vectorEffect={NS} />}
           {!s.real && !s.online && k.a * W > 420 && <Pin p={{ x: 0, y: 0 }} k={k}><text x={6} y={16} fill="#fff" fillOpacity={0.8} fontSize={11} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">Planning area · 16 × 10 km (routes are simulated inside it)</text></Pin>}
           {s.region && <rect x={s.region.x} y={s.region.y} width={s.region.w} height={s.region.h} fill="none" stroke="#2dd4d0" strokeWidth={2} strokeDasharray="8 4" vectorEffect={NS} />}
-          {s.obs.map((o, i) => (
+          {!only && s.obs.map((o, i) => (
             <g key={i}>
               <circle cx={o.x} cy={o.y} r={o.r} fill="#e5645f55" stroke="#e5645f" strokeWidth={2} strokeDasharray="3 3" vectorEffect={NS} />
               <Pin p={o} k={k}><text y={4} fill="#fff" fontSize={11} textAnchor="middle">Obstacle</text></Pin>
             </g>
           ))}
-          {s.prev && <polyline points={pts(s.prev)} fill="none" stroke="#fff" strokeWidth={2} strokeDasharray="2 5" opacity={0.6} vectorEffect={NS} />}
-          {s.mode === 'route' && s.routes.map((r, i) => i !== s.sel && <polyline key={r.k} points={pts(r.out.p)} fill="none" stroke={r.c} strokeWidth={2} opacity={0.45} vectorEffect={NS} />)}
+          {!only && s.prev && <polyline points={pts(s.prev)} fill="none" stroke="#fff" strokeWidth={2} strokeDasharray="2 5" opacity={0.6} vectorEffect={NS} />}
+          {!only && s.mode === 'route' && s.routes.map((r, i) => i !== s.sel && <polyline key={r.k} points={pts(r.out.p)} fill="none" stroke={r.c} strokeWidth={2} opacity={0.45} vectorEffect={NS} />)}
           {segs.map((x, i) => <polyline key={'c' + i} points={pts(x.s.p)} fill="none" stroke="#0b1220" strokeOpacity={0.85} strokeWidth={x.dashed ? 6 : 9} strokeLinecap="round" strokeLinejoin="round" vectorEffect={NS} />)}
           {segs.map((x, i) => <polyline key={i} points={pts(x.s.p)} fill="none" stroke={x.c} strokeWidth={x.dashed ? 3 : 5} strokeDasharray={x.dashed ? '9 5' : undefined} strokeLinecap="round" strokeLinejoin="round" vectorEffect={NS} />)}
           {segs.filter((x) => !x.dashed).flatMap((x, i) => steep(x).map((r, j) => <polyline key={`st${i}-${j}`} points={pts(r)} fill="none" stroke="#fbbf24" strokeWidth={5} strokeLinecap="round" strokeLinejoin="round" vectorEffect={NS}><title>Steeper than the slope limit</title></polyline>))}
           {legs.map((l, i) => <LegPill key={i} text={l.text} p={l.p} k={k} />)}
-          {s.targets.map((t) => {
+          {s.targets.filter((t) => !only || t.id === only.id).map((t) => {
             const o = s.mission?.feasible ? s.mission.legs.findIndex((l) => l.t === t) : -1;
             return <Marker key={t.id} p={t} k={k} color="#8b5cf6" glyph={o >= 0 ? String(o + 1) : '★'} label={t.label ?? t.id} hot={s.selT === t.id} onClick={() => s.selectTarget(t.id)} />;
           })}
-          {s.wps.map((w, i) => <Marker key={i} p={w} k={k} color="#fff" fg="#0b1220" glyph={letter(i + 1)} size={0.85} />)}
-          <Marker p={s.base} k={k} color="#2563eb" glyph="⌂" label="Base" />
-          {s.start && <Marker p={s.start} k={k} color="#16a34a" glyph="A" label="Start" />}
-          {s.dest && <Marker p={s.dest} k={k} color="#dc2626" glyph={letter(s.wps.length + 1)} label="Destination" />}
+          {!only && s.wps.map((w, i) => <Marker key={i} p={w} k={k} color="#fff" fg="#0b1220" glyph={letter(i + 1)} size={0.85} />)}
+          {!only && <Marker p={s.base} k={k} color="#2563eb" glyph="⌂" label="Base" />}
+          {!only && s.start && <Marker p={s.start} k={k} color="#16a34a" glyph="A" label="Start" />}
+          {!only && s.dest && <Marker p={s.dest} k={k} color="#dc2626" glyph={letter(s.wps.length + 1)} label="Destination" />}
           {s.focus && <Pin p={s.focus} k={k}><circle r={22} fill="#e8aa3c33" stroke="#e8aa3c" strokeWidth={2} /></Pin>}
           {navP && <Pin p={navP} k={k}><circle r={16} fill="#4285f4" opacity={0.22} /><circle r={8} fill="#4285f4" stroke="#fff" strokeWidth={3} /><Tag text="Simulated astronaut" x={14} y={-14} /></Pin>}
           {rubber && <rect x={Math.min(rubber.a.x, rubber.b.x)} y={Math.min(rubber.a.y, rubber.b.y)} width={Math.abs(rubber.b.x - rubber.a.x)} height={Math.abs(rubber.b.y - rubber.a.y)} fill="#2dd4d022" stroke="#2dd4d0" strokeDasharray="6 3" vectorEffect={NS} />}
@@ -264,6 +265,7 @@ export default function MapCanvas() {
       <div className="mtools">
         <button className={drawing ? 'on' : ''} onClick={() => s.setPick(drawing ? null : 'region')} title="Drag a box on the map to choose the analysis area">▭ {drawing ? 'Drawing: drag on map' : 'Select region'}</button>
         <button onClick={fit} title="Zoom to the planning area">⌖ Fit</button>
+          {only && <button onClick={() => s.setField('showOnly', null)} title="Show the routes, sites and markers again">Show all</button>}
       </div>
       <div className="ov" id="co" ref={coRef}>Hover the map for coordinates</div>
     </>
