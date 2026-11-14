@@ -388,6 +388,7 @@ class RouteAlternative(BaseModel):
     label: str
     geometry: list[LonLat] = Field(default_factory=list)
     metrics: RouteMetrics | None = None
+    elevation_profile: list[ElevationProfilePoint] = Field(default_factory=list)
     warnings: list[str] = Field(default_factory=list)
 
 

@@ -14,6 +14,7 @@ Prefix: `/api/v1`; JSON; UUID paths; validation errors use FastAPI's standard `4
 | `GET /datasets`, `GET /datasets/{id}` | typed category/freshness query -> `DatasetRecord[]` | Data/cache |
 | `POST /datasets/{id}/refresh` | -> `DatasetRefreshJob` (202) | Data/cache |
 | `POST /routes` | `RouteRequest` -> `RouteResult` | Routing |
+| `GET /routes/{id}` | -> `RouteResult` (in memory; 404 after a restart) | Routing |
 | `POST /routes/{id}/replan` | `ReplanRequest` -> `RouteResult` | Routing |
 | `POST /navigation/guide` | `NavigationGuideRequest` -> `NavigationInstruction` | Routing |
 | `POST /assistant/messages` | `AssistantRequest` -> `AssistantResponse` | Analyzer/AI |

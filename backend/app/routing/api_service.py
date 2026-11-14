@@ -141,7 +141,9 @@ class RoutingApi:
                     same.append(PRESET_LABEL[preset])
                     continue
                 seen.append(alt.path)
-                alternatives.append(RouteAlternative(id=uuid4(), label=PRESET_LABEL[preset], geometry=alt.path, metrics=alt.result.metrics, warnings=alt.result.warnings))
+                self._remember(alt, request)                      # an alternative can be followed and replanned like the main route
+                alternatives.append(RouteAlternative(id=alt.result.id, label=PRESET_LABEL[preset], geometry=alt.path, metrics=alt.result.metrics,
+                                                     elevation_profile=alt.result.elevation_profile, warnings=alt.result.warnings))
             if same:
                 main.result.warnings.append(f"On this terrain the {' and '.join(same)} setting{'s' if len(same) > 1 else ''} give the same route, so no separate alternative is shown.")
         main.result.alternatives = alternatives

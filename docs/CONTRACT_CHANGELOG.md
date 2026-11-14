@@ -1,5 +1,9 @@
 # Contract change log
 
+## 0.2.8 draft — routing API
+
+Additive. `RouteAlternative` gains `elevation_profile` and its `id` is a route that can be read, replanned and followed like the main route. `POST /routes`, `GET /routes/{id}`, `POST /routes/{id}/replan` and `POST /navigation/guide` are implemented (the 501 placeholders are removed). `POST /routes` returns the requested preset as the route and the other comparison presets as `alternatives`; presets that give the identical route are not repeated and a warning says so. Blocked areas are honoured when planning and replanning. Routes are held in memory, so a route id is unknown after a restart. TypeScript mirror updated together.
+
 ## 0.2.7 draft — hosted-model assistant
 
 Additive. `AssistantRequest` gains optional `analysis_id` (the analysis the user is looking at) and `selected_area` (the area selected in the UI) so the assistant answers about what is on screen. New `GET /assistant/status` returns `{mode: "gemma" | "rule_based", model}`. `POST /assistant/messages` uses a hosted Gemma model when `GEMMA_MODEL` and `GEMMA_API_KEY` are set and falls back to the rule-based assistant, with a warning, when the model is unavailable. The tool allowlist is unchanged; the model is offered only the read-only tools. TypeScript mirror updated together.

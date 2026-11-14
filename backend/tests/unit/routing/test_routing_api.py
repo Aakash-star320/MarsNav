@@ -97,6 +97,9 @@ def test_rough_ground_changes_the_route_and_alternatives_are_distinct(api) -> No
     labels = [a.label for a in res.alternatives]
     assert len(set(labels)) == len(labels) and all(a.geometry != res.geometry and a.metrics.distance_m > 0 for a in res.alternatives)
     assert all(a.geometry != b.geometry for i, a in enumerate(res.alternatives) for b in res.alternatives[i + 1:])
+    alt = res.alternatives[0]                                                           # an alternative is a full route: readable, with its own profile, and followable
+    assert svc.get(alt.id).geometry == alt.geometry and len(alt.elevation_profile) == len(alt.geometry)
+    assert guide(svc, svc.get(alt.id), alt.geometry[0], 0.0).remaining_distance_m == pytest.approx(alt.metrics.distance_m)
 
 
 # -- blocked areas and replanning ----------------------------------------------------------------------
