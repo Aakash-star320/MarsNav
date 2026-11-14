@@ -34,12 +34,13 @@ function Banner() {
 }
 
 function Legend() {
-  const { layers, slope, real, routeSource, routes, mode } = useStore();
+  const { layers, slope, real, routeSource, routes, mode, missionSource, mission } = useStore();
   const realRoutes = routeSource === 'real' && routes.length > 0 && mode === 'route';
+  const realMission = missionSource === 'real' && !!mission && mode === 'mission';
   const items = LAYERS.filter((l) => layers[l.id].on).map((l) => (l.id === 'haz' ? `Red cells: slope > ${slope}°` : (real && REAL_LEGEND[l.id]) || LEGEND[l.id])).filter(Boolean);
   return (
     <div className="ov" id="lg"><b>Legend</b> {items.join(' · ') || 'No layers on'}<br />
-      <span style={{ color: '#f0b254' }}>{real ? `Elevation, slope, steep-terrain and spectral layers are real analysis (463 m terrain). ${realRoutes ? 'Routes follow that real terrain; missions are simulated.' : 'Routes and missions are simulated.'}` : 'Routes, targets and terrain layers are simulated.'}</span><br />
+      <span style={{ color: '#f0b254' }}>{real ? `Elevation, slope, steep-terrain and spectral layers are real analysis (463 m terrain). ${realMission ? 'The mission follows that real terrain; routes are simulated.' : realRoutes ? 'Routes follow that real terrain; missions are simulated.' : 'Routes and missions are simulated.'}` : 'Routes, targets and terrain layers are simulated.'}</span><br />
       <span style={{ color: '#b4c1d8' }}>Solid = outbound · dashed = return · ◆ target · dotted = previous</span>
     </div>
   );
