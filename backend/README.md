@@ -23,6 +23,9 @@ Environment variables (or a `.env` file one level up), read by `app/core/config.
 | `ANALYZER_MAX_AREA_KM2` | 2500 | Largest area accepted; larger requests fail with `area_limit` |
 | `ANALYZER_MAX_DOWNLOAD_BYTES` | 67108864 | Largest elevation read per analysis |
 | `CORS_ORIGINS` | `http://localhost:5173` | Allowed browser origins |
+| `GEMMA_MODEL` | empty | Hosted Gemma model name. With `GEMMA_API_KEY`, the assistant answers with the model; with either empty it stays rule-based |
+| `GEMMA_API_KEY` | empty | API key for the hosted model. Put it in `.env` only; it is sent as a request header and never logged or returned |
+| `GEMMA_API_BASE` | `https://generativelanguage.googleapis.com/v1beta` | Base URL of the model API |
 
 The frontend reads `VITE_API_BASE` (default `http://localhost:8000/api/v1`).
 
@@ -82,5 +85,5 @@ Measured timings and memory are in [`../docs/BENCHMARKS.md`](../docs/BENCHMARKS.
 - One elevation source (MOLA); no HRSC or HiRISE terrain models and no fusion.
 - The PDS server is sometimes slow; science reads fail softly with a warning.
 - Imagery on the map needs internet access.
-- No language-model assistant or document retrieval; the assistant is deterministic.
+- The assistant uses a hosted Gemma model only when `GEMMA_MODEL` and `GEMMA_API_KEY` are set (see Configuration); otherwise it is rule-based. The model can only call read-only, validated tools (status, summary, candidates, data sources) and cannot start analyses or routes. Its wording is not machine-verified: numbers in the answer come from tool results, but check the result card. There is no document retrieval (RAG).
 - Routing, caching/downloads and the mission store belong to other members; the analyzer reads sources directly until the download service exists.

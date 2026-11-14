@@ -17,6 +17,7 @@ Prefix: `/api/v1`; JSON; UUID paths; validation errors use FastAPI's standard `4
 | `POST /routes/{id}/replan` | `ReplanRequest` -> `RouteResult` | Routing |
 | `POST /navigation/guide` | `NavigationGuideRequest` -> `NavigationInstruction` | Routing |
 | `POST /assistant/messages` | `AssistantRequest` -> `AssistantResponse` | Analyzer/AI |
+| `GET /assistant/status` | -> `{mode, model}` | Analyzer/AI |
 
 `POST /analyses` is asynchronous because discovery/download/processing may take time. Its result only references artifacts already persisted locally. `POST /routes` is synchronous for prototype-sized grids; it returns `feasible:false` with empty geometry and conflicts rather than an error for a valid no-route condition. Route/replan requests carry analysis/version identifiers so active data cannot be silently replaced. Dataset refresh uses a dataset-specific lifecycle job, never an analysis job.
 

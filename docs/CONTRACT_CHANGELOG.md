@@ -1,5 +1,9 @@
 # Contract change log
 
+## 0.2.7 draft — hosted-model assistant
+
+Additive. `AssistantRequest` gains optional `analysis_id` (the analysis the user is looking at) and `selected_area` (the area selected in the UI) so the assistant answers about what is on screen. New `GET /assistant/status` returns `{mode: "gemma" | "rule_based", model}`. `POST /assistant/messages` uses a hosted Gemma model when `GEMMA_MODEL` and `GEMMA_API_KEY` are set and falls back to the rule-based assistant, with a warning, when the model is unavailable. The tool allowlist is unchanged; the model is offered only the read-only tools. TypeScript mirror updated together.
+
 ## 0.2.6 draft — hazard layer image
 
 Additive. `GET /analyses/{id}/layers/hazard.png?slope_limit_deg=` serves cells steeper than the limit (translucent red, everything else transparent) at display resolution. It marks steep terrain at the source resolution and is not a safety assessment.
