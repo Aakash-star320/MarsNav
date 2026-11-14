@@ -1,92 +1,157 @@
 # MarsNav
 
-MarsNav is a Martian Marswalk planner for NASA Space Apps 2026. Given a region of Mars it retrieves real planetary data, derives terrain layers, and (as each part lands) plans walking routes and science stops within life-support limits. It is a scientific planning prototype, not a certified EVA system.
+**A layered, hyperlocal Marswalk planner built from real NASA data.**
 
-## What works today
+MarsNav is for NASA Space Apps 2026 (the "Marswalk" challenge). Pick any area of Mars and MarsNav pulls real data from several NASA missions, layers it into one map, finds science sites worth visiting, and plans walking routes and science missions that fit inside a life-support budget (oxygen, time, reserve, return to base). An assistant answers questions about what the data shows, and only ever reports what its checked tools return.
 
-| Area | State |
+It is a scientific **planning prototype**, not a certified EVA system. Walking pace, slope limits and reserves are stated assumptions, not NASA values, and the page says so wherever they matter.
+
+## What it does
+
+| Capability | Detail |
 |---|---|
-| Terrain analysis from the MOLA 463 m global DEM | Working end to end: draw a region, get real elevation, slope, roughness and steep-terrain layers and statistics |
-| Hydrated-mineral candidates (CRISM) | Heuristic candidates with evidence and a map overlay; rule and limits in [`docs/SCIENCE_CRISM.md`](docs/SCIENCE_CRISM.md). They are screens of summary parameters, not identified minerals |
-| Dashboard map | Zoomable and pannable Mars map (NASA Mars Trek imagery), analysis layers placed by their geographic bounds, pins for start, destination, base, waypoints and targets |
-| 2D / 3D | 3D shows the real elevation as a solid block with the imagery draped over it; it reads the visible area by itself if nothing has been analysed |
-| Routes | Real routes on the analysed terrain from the routing service: shortest / safest / balanced comparison, waypoints, a base point for the return trip, obstacles with replanning, an elevation profile and navigation guidance |
-| Science objectives | A small registry: hydrated minerals (CRISM) and two terrain-based objectives (flat safe sites, high vantage points) found in the elevation data. For any other objective the assistant asks NASA's catalog whether data covers the area and says honestly what exists and that this tool cannot analyse it yet |
-| Science missions | Real mission planner: picks the analysis' science targets that fit the oxygen budget, plans every leg and says why a target was left out |
-| Data cap | Each analysis may read at most 64 MiB and a session at most 256 MiB (`ANALYZER_MAX_DOWNLOAD_BYTES`, `ANALYZER_SESSION_CAP_BYTES`); requests that would exceed it are refused before anything is fetched |
-| Assistant | Docked chat panel with result cards and "show on map" actions. It uses a hosted model (Gemma, or a Gemini model, named in the panel header) when `GEMMA_MODEL` and `GEMMA_API_KEY` are set and a rule-based assistant otherwise; the model can only call read-only, validated tools |
-| Contracts | Python and TypeScript mirrors; see [`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md) and [`docs/CONTRACT_CHANGELOG.md`](docs/CONTRACT_CHANGELOG.md) |
-| Not built | Download service and cache, the database-backed mission store, document search (RAG), other science objectives, finer terrain than 463 m (see [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md)) |
+| **Layered map** | Zoomable, pannable Mars map. Optical imagery (Viking), terrain (MOLA elevation, slope, roughness, steep-terrain), and mineral evidence (CRISM) layered with independent visibility and opacity |
+| **2D and 3D** | A solid 3D block of the real terrain with the imagery draped over it and hillshade lighting. If nothing has been analysed it reads the visible area by itself |
+| **Region analysis** | Draw a box (up to about 45 km across). The analyzer reads only the rows it needs from public files, derives slope and roughness, and reports statistics with their limits |
+| **Science objectives** | Hydrated minerals (CRISM spectral screen) plus two terrain-based objectives, flat safe sites and high vantage points. Every target shows its measured values, the rule that picked it, and its limits |
+| **Honest "can't do that"** | For any other objective the app asks NASA's catalog (ODE) whether data covers the area. It reports what exists and that this tool cannot analyse it yet, and never claims absence if the catalog is unreachable |
+| **Routes** | Deterministic A* on the analysed terrain: shortest, safest and balanced routes side by side, waypoints, a base point for the return trip, elevation profile, obstacles with replanning, and next-move guidance |
+| **Science missions** | Picks the analysis' science targets with the best value per minute that fit the oxygen budget, plans every leg, and lists the targets it left out with the reason |
+| **Assistant** | Docked chat panel with result cards and "show on map" actions. With a model configured it answers questions through read-only, validated tools; without one a rule-based assistant answers |
+| **Safety limits** | Maximum slope, oxygen and duration budgets, reserve, return to base, unknown terrain excluded (never treated as safe), obstacles you mark |
+| **Data cap** | 64 MiB per analysis and 256 MiB per session, checked before anything is fetched |
 
-Everything runs without an API key except the optional Gemma assistant. Elevation, imagery and spectral data are read directly from public NASA and USGS servers, so an internet connection is needed. Coarse global elevation supports broad planning only: it cannot show rocks or small obstacles, slopes are not a safety assessment, and walking speed, oxygen and slope limits are prototype assumptions, not NASA values.
+## Data from NASA missions
 
-[`backend/README.md`](backend/README.md) covers installation, configuration, equations and example requests; [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) lists exactly what is implemented, partial and unsupported, with the verified data sources.
+| Layer | Source | Mission / instrument |
+|---|---|---|
+| Elevation, slope, roughness | USGS MOLA global DEM, 463 m, read by HTTP range request (the 2.1 GB file is never downloaded) | Mars Global Surveyor, MOLA |
+| Optical imagery | Viking MDIM 2.1 colour mosaic, 232 m per pixel, via NASA Mars Trek tiles | Viking orbiters |
+| Hydrated-mineral evidence | CRISM MTRDR summary-parameter cubes (three bands read by range request) from the PDS Geosciences Node | Mars Reconnaissance Orbiter, CRISM |
+| Data discovery | ODE REST service (PDS Geosciences Node) for product footprints and availability | |
+
+Details, verified URLs and what is *not* claimed are in [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) and [`docs/DATASET_SOURCES.md`](docs/DATASET_SOURCES.md).
+
+## How it fits together
+
+```mermaid
+flowchart LR
+  A[NASA / USGS sources<br/>MOLA, CRISM, Viking, ODE] --> B[Analyzer<br/>region planner, readers,<br/>terrain bundle, objectives]
+  B --> C[Routing engine<br/>A*, limits, blocked areas]
+  C --> D[Route and mission APIs]
+  B --> E[Map package<br/>layers, 3D surface]
+  D --> F[Dashboard<br/>2D / 3D map, results, HUD]
+  E --> F
+  B --> G[Assistant tools<br/>read-only, validated]
+  G --> F
+```
+
+One FastAPI backend and one React + TypeScript frontend share typed contracts ([`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md), changes logged in [`docs/CONTRACT_CHANGELOG.md`](docs/CONTRACT_CHANGELOG.md)). Large arrays travel in a verified terrain bundle ([`docs/TERRAIN_CONTRACT.md`](docs/TERRAIN_CONTRACT.md)), never inside JSON.
+
+## How the assistant stays honest
+
+- It can only call **read-only tools** (analysis status and summary, science targets, data sources); arguments are validated before anything runs.
+- It **cannot invent coordinates or analysis ids**: an id must come from the request or an earlier tool result.
+- Numbers, map actions and warnings come from tool results, and answers show the limits that came with them.
+- If the model is unavailable, slow, rate limited or returns malformed output, the **rule-based assistant answers** and the reply carries a warning saying why. The core planning never depends on a model.
+- The model is **hosted** (Google's Generative Language API, a Gemma or Gemini model named in the panel header), so when it is enabled, analysis summaries and tool results are sent to Google and the chat needs internet.
+
+## Known limits
+
+- **Resolution.** MOLA is 463 m per cell. Boulders, small craters and other hazards below that size are invisible, and slope above a limit is not a safety assessment. Finer terrain (CTX, HiRISE) would plug into the same pipeline but is not built.
+- **Safety data.** There is no radiation, weather or thermal layer yet.
+- **Spectral candidates are screens,** not identified minerals, and missing CRISM coverage is never evidence of absence.
+- **Objectives.** Three are implemented. Everything else is answered with what NASA's catalog holds and an honest "not analysable yet".
+- **Routes and plans are kept in memory**; after a backend restart plan again. Analyses are saved on disk and survive restarts.
+- **Needs internet** to read NASA and USGS data and imagery tiles. There is no download service or cache yet.
+- **Prototype assumptions:** walking pace 2 km/h, 30-minute reserve, a 20 percent distance reserve and the default slope limit are labelled assumptions.
+
+## Quick start
+
+Requirements: Python **3.11 or 3.12** (not 3.13 or newer) and Node.js 20 or newer. No database is needed for the current features.
+
+```bash
+# backend (Git Bash; on Windows create the venv with: py -3.12 -m venv .venv)
+cd backend
+python -m venv .venv
+source .venv/Scripts/activate        # macOS/Linux: source .venv/bin/activate
+pip install -e ".[dev]"
+uvicorn app.main:app
+
+# frontend (second terminal)
+cd frontend
+npm install
+npm run dev
+```
+
+Open http://localhost:5173. The API documentation is at http://localhost:8000/docs.
+
+### Configuration
+
+Copy `.env.example` to `.env` at the repository root (it is git-ignored; never commit it).
+
+| Variable | Default | Meaning |
+|---|---|---|
+| `GEMMA_MODEL`, `GEMMA_API_KEY` | empty | A Gemma or Gemini model id and API key. Leave both empty to keep the rule-based assistant |
+| `GEMMA_API_BASE` | Google Generative Language API | Base URL of the model API |
+| `ANALYZER_MAX_AREA_KM2` | 2500 | Largest analysis area |
+| `ANALYZER_MAX_DOWNLOAD_BYTES` | 64 MiB | Most one analysis may read |
+| `ANALYZER_SESSION_CAP_BYTES` | 256 MiB | Most all analyses may read since the backend started |
+| `DATA_ROOT` | `../data` | Where analyses are saved (git-ignored) |
+| `CORS_ORIGINS` | `http://localhost:5173` | Allowed browser origins |
+
+### A short demo
+
+1. **Analyze Region**: drag a box around the Jezero crater delta (about 20 km across) and press **Analyze Region**. You get real terrain, statistics and a CRISM candidate.
+2. Switch to **3D**, then back to **2D** (your zoom is kept).
+3. **Plan Route**: set a Start and a Destination anywhere (up to about 45 km apart) and press **Generate Routes**. The area around them is analysed first. Compare the routes, read the elevation profile, report an obstacle to replan.
+4. **Plan Scientific Mission**: pick an objective, set the oxygen (about 8 hours for the Jezero sites; at walking pace 4 hours is often too little and the app says so) and press **Plan Mission**.
+5. **Ask AI assistant**: "How steep is this area?", "Plan a science journey to find flat safe sites with 8 hours of oxygen", or ask for something not supported, such as boxwork formations, to see the honest catalog answer.
+
+Analyses are saved under `data/derived/analyses/`, so repeating a request for the same area is instant.
+
+## API quick reference
+
+All under `/api/v1`. Full contracts are in [`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md) and the live OpenAPI at `/docs`.
+
+| Area | Endpoints |
+|---|---|
+| Analysis | `POST /analyses`, `GET /analyses/{id}`, `GET /analyses/{id}/result`, `GET /analyses/{id}/map`, `GET /analyses/{id}/layers/{kind}.png`, `POST /analyses/{id}/cancel`, `GET /analyses/{id}/terrain.npz` |
+| Objectives and data | `GET /objectives`, `POST /objectives/check`, `GET /data-budget` |
+| Routing | `POST /routes`, `GET /routes/{id}`, `POST /routes/{id}/replan`, `POST /navigation/guide` |
+| Missions | `POST /mission-plans`, `GET /mission-plans/{id}` |
+| Assistant | `POST /assistant/messages`, `GET /assistant/status` |
 
 ## Repository layout
 
 ```
-backend/    FastAPI app (app/analyzer, app/connectors, app/routing, app/data_services, ...) and tests
-frontend/   React + TypeScript dashboard and map (src/features/*, src/store, src/api, src/types)
-docs/       Specifications, contracts and member task documents
+backend/    FastAPI app: app/analyzer (discovery, selection, preprocessing, science, publishing),
+            app/connectors (ODE, USGS MOLA, PDS CRISM), app/routing (engine, API layer, mission planner),
+            app/ai (assistant, hosted-model client, tools), app/api (routes), tests
+frontend/   React + TypeScript dashboard: src/features (dashboard, mars-map), src/store, src/api, src/types
+docs/       Specifications, contracts, status and member task documents
 data/       Local data folders (contents are not committed)
 ```
 
-## Quick start
-
-Requirements: Python **3.11 or 3.12** (not 3.13 or newer), Node.js 20 or newer. PostgreSQL is not needed for the current features.
-
-1. Optional: copy `.env.example` to `.env` at the repository root. To enable the hosted assistant set `GEMMA_MODEL` (a Gemma or Gemini model id) and `GEMMA_API_KEY` there; leave them empty to keep the rule-based assistant. Never commit `.env`.
-2. Backend (Git Bash):
-   ```bash
-   cd backend
-   python -m venv .venv            # on Windows: py -3.12 -m venv .venv
-   source .venv/Scripts/activate   # macOS/Linux: source .venv/bin/activate
-   pip install -e ".[dev]"
-   uvicorn app.main:app
-   ```
-3. Frontend (second terminal):
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-4. Open http://localhost:5173. The API documentation is at http://localhost:8000/docs.
-
-### A short demo
-
-1. Choose **Analyze Region**, drag a box around Jezero crater (about 20 km across) and press **Analyze Region**. You get real terrain, a statistics summary and a CRISM candidate.
-2. Switch to **3D** to see the terrain as a block with the imagery draped on it, then back to **2D** (your zoom is kept).
-3. Choose **Plan Route**, set a Start and a Destination anywhere (up to about 45 km apart) and press **Generate Routes**: the area around them is analysed first, then you get real routes. Compare shortest / safest / balanced, check the elevation profile, then try **Report obstacle** to replan.
-4. Choose **Plan Scientific Mission**, pick an objective, set the oxygen (about 8 hours for the Jezero sites; at walking pace 4 hours is often too little, and the app says so) and press **Plan Mission**.
-5. Open **Ask AI assistant**: "Analyze this region", "How steep is this area?", or "Plan a science journey to find flat safe sites with 8 hours of oxygen". Ask for something we cannot analyse (for example boxwork formations) to see the honest catalog answer.
-
-Analyses are saved under `data/derived/analyses/`, so repeating a request for the same area is instant, even after a restart. Routes and mission plans are kept in memory: after restarting the backend, plan them again.
-
-### Try the analysis endpoint
-
-```bash
-curl -X POST http://localhost:8000/api/v1/analyses -H "Content-Type: application/json" -d '{
-  "mission_id": "00000000-0000-0000-0000-000000000001",
-  "roi": {"name": "Jezero", "bounds": {"west_deg_east": 77.2, "south_deg": 18.2, "east_deg_east": 77.6, "north_deg": 18.6}, "analysis_margin_m": 1000},
-  "objective": "terrain overview"}'
-# then: GET /api/v1/analyses/{id}  and  GET /api/v1/analyses/{id}/result
-```
-
-The analyzer reads only the rows it needs from the public USGS MOLA file over HTTP; no API key is required. Limits are set by `ANALYZER_MAX_AREA_KM2` and `ANALYZER_MAX_DOWNLOAD_BYTES`.
-
 ## Tests
 
-- Backend: `cd backend; python -m pytest -q`. Add `RUN_REAL_DATA=1` to also read the live MOLA file (about 2.6 MB per window).
-- Frontend: `cd frontend; npm test`, `npx tsc --noEmit` and `npm run build`.
+```bash
+cd backend && python -m pytest -q                  # offline tests; RUN_REAL_DATA=1 also reads the live MOLA file
+cd frontend && npm test && npx tsc --noEmit && npm run build
+```
 
 ## Coordinates and units
 
 Latitude is planetocentric degrees; longitude is east-positive in `[-180, 180)`; distances are metres, slopes degrees, durations minutes. Source products keep their original conventions and are converted at ingestion. See [`docs/COORDINATE_CONVENTIONS.md`](docs/COORDINATE_CONVENTIONS.md).
 
-## Read before coding
+## Documentation
 
-[`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md), [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md), and your document in [`docs/MEMBER_TASKS`](docs/MEMBER_TASKS).
+[`docs/PROJECT_SPEC.md`](docs/PROJECT_SPEC.md) · [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md) · [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) · [`docs/SCIENCE_CRISM.md`](docs/SCIENCE_CRISM.md) · [`docs/ROUTING_SPEC.md`](docs/ROUTING_SPEC.md) · [`docs/BENCHMARKS.md`](docs/BENCHMARKS.md) · [`backend/README.md`](backend/README.md)
 
 ## Repository rules
 
-One FastAPI app, one frontend, and one source of truth for contracts. Keep downloaded products and generated rasters out of Git. Branch names start with the member name and name the feature (for example `aakash/analyzer-terrain-pipeline`); open a PR into `main`; see `CONTRIBUTING.md`.
+One FastAPI app, one frontend, one source of truth for contracts. Keep downloaded products and generated rasters out of Git, and never commit `.env`. Branch names start with the member name and name the feature (for example `aakash/analyzer-terrain-pipeline`); open a PR into `main`; see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## Credits
+
+Data and imagery: NASA and USGS (MOLA, Viking MDIM via NASA Mars Trek, MRO CRISM and the PDS Geosciences Node, ODE). This project uses public data and is not affiliated with or endorsed by NASA.
