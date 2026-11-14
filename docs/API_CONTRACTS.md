@@ -17,6 +17,7 @@ Prefix: `/api/v1`; JSON; UUID paths; validation errors use FastAPI's standard `4
 | `GET /routes/{id}` | -> `RouteResult` (in memory; 404 after a restart) | Routing |
 | `POST /routes/{id}/replan` | `ReplanRequest` -> `RouteResult` | Routing |
 | `POST /navigation/guide` | `NavigationGuideRequest` -> `NavigationInstruction` | Routing |
+| `POST /mission-plans`, `GET /mission-plans/{id}` | `MissionPlanRequest` -> `MissionPlanResult` (in memory) | Routing |
 | `POST /assistant/messages` | `AssistantRequest` -> `AssistantResponse` | Analyzer/AI |
 | `GET /assistant/status` | -> `{mode, model}` | Analyzer/AI |
 

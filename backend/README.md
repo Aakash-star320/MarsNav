@@ -74,6 +74,8 @@ Jobs run one at a time on a worker thread. Equivalent requests share a job, resu
 
 The request may carry up to ten `waypoints` (visited in order, before any required science targets) and a `base` where a return trip ends (the start point when omitted).
 
+`POST /mission-plans` plans a science mission on a finished analysis: it picks the analysis' science targets with the best relevance per minute that still fit the oxygen budget (reserve and the way back to the base included), plans every leg with the same engine, and reports the targets it left out and why. Targets only come from the analysis, never invented.
+
 Limits: routes are planned on the 463 m terrain, so they are broad planning paths, not paths around rocks or small craters; routes are kept in memory (an id is unknown after a restart).
 
 ## Tests and benchmarks

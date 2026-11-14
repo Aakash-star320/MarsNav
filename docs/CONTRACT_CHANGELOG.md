@@ -1,5 +1,9 @@
 # Contract change log
 
+## 0.2.10 draft — mission plans
+
+Additive. New `POST /mission-plans` and `GET /mission-plans/{id}` (models in `app/schemas/mission_plan.py`, TypeScript in `frontend/src/types/missionPlan.ts`). A plan picks science targets of a finished analysis greedily by relevance per minute inside the oxygen budget (reserve and the way back to the base included), plans each leg with the routing engine, and lists targets it left out with a reason. Targets only ever come from the analysis. Plans are held in memory.
+
 ## 0.2.9 draft — route waypoints and base
 
 Additive. `RouteRequest` gains optional `waypoints` (up to 10 stops between start and destination, visited in the order given, before any required targets) and optional `base` (where a return trip ends; the start point when omitted). `RouteResult.waypoints` lists the waypoints followed by the required targets. Unknown cells outside the analysed area give the conflicts `waypoint_outside_grid` and `base_outside_grid`. TypeScript mirror updated together.
