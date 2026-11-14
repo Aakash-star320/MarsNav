@@ -10,7 +10,6 @@ const Terrain3D = lazy(() => import('../mars-map/Terrain3D').then((m) => ({ defa
 
 const LEGEND: Record<string, string> = {
   opt: 'Real imagery: NASA Mars Trek (Viking, 232 m)', elev: 'Simulated elevation: blue low → white high', slope: 'Simulated slope: green gentle → red steep',
-  therm: 'Thermal (orange)', cov: 'Coverage: teal detailed · amber moderate · grey coarse',
 };
 const REAL_LEGEND: Record<string, string> = {
   elev: 'Elevation (MOLA): blue low → orange high', slope: 'Slope: green gentle → red steep',

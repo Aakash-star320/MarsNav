@@ -1,4 +1,6 @@
+import { useEffect } from 'react';
 import type { ReactNode } from 'react';
+import { fmtMB } from '../../api/objectives';
 import { useStore } from '../../store/dashboardStore';
 import type { DataState, Mode, Pick } from '../../types/ui';
 import { fmtCoord, KM_PER_PX } from '../../utils/geo';
@@ -14,7 +16,7 @@ const PRIMARY: Record<Mode, [string, 'analyze' | 'generate' | 'plan']> = {
   analyze: ['Analyze Region', 'analyze'], route: ['Generate Routes', 'generate'], mission: ['Plan Mission', 'plan'],
 };
 const CATS: [keyof DataState['cats'], string][] = [
-  ['elev', 'Elevation'], ['slope', 'Slope'], ['rough', 'Roughness'], ['haz', 'Potential hazards'], ['spec', 'Mineral / spectral'], ['therm', 'Thermal properties'],
+  ['elev', 'Elevation'], ['slope', 'Slope'], ['rough', 'Roughness'], ['haz', 'Potential hazards'], ['spec', 'Mineral / spectral'],
 ];
 
 function LocRow({ k, label }: { k: 'start' | 'dest' | 'base'; label: string }) {
@@ -91,8 +93,17 @@ function Layers() {
   );
 }
 
+/** How much data this session has read from the NASA/USGS sources, against the cap; hidden when the backend does not say. */
+function DataUsed() {
+  const b = useStore((s) => s.dataBudget);
+  if (!b) return null;
+  return <p className="nt" data-testid="data-used">Data read this session: {fmtMB(b.session_used_bytes)} MB of {fmtMB(b.session_cap_bytes)} MB.</p>;
+}
+
 export default function SetupPanel() {
   const s = useStore();
+  const { loadObjectives, refreshDataBudget } = s;
+  useEffect(() => { loadObjectives(); refreshDataBudget(); }, [loadObjectives, refreshDataBudget]);
   const { mode, pan, togglePanel } = s;
   if (!pan.L) {
     return <aside id="L" className="col"><button className="rail" onClick={() => togglePanel('L')} title="Show setup panel">▶ Setup</button></aside>;
@@ -135,9 +146,10 @@ export default function SetupPanel() {
             <LocRow k="base" label="Base" />
             <label>Scientific objective
               <select value={s.obj} onChange={(e) => s.setField('obj', e.target.value)}>
-                {['Hydrated minerals', 'Clay mineral signatures', 'Geological diversity', 'Thermal properties', 'Interesting terrain'].map((x) => <option key={x}>{x}</option>)}
+                {s.objectives.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
               </select>
             </label>
+            <p className="nt" data-testid="objective-note">{s.objectives.find((o) => o.id === s.obj)?.limitation}</p>
             <KeyConstraints />
             <NumField k="exam" label="Examination time per site (minutes)" />
             <NumField k="maxSites" label="Maximum number of sites" min={1} />
@@ -147,6 +159,7 @@ export default function SetupPanel() {
           </>
         )}
         <Layers />
+        <DataUsed />
       </div>
       <div className="pf">
         {s.stale && <p className="nt wn" style={{ margin: '0 0 6px' }}>Settings changed. Press {primaryLabel} to update results.</p>}

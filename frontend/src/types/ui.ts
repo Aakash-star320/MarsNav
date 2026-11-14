@@ -1,5 +1,6 @@
 import type { BoundingBox } from './contracts';
 import type { RegionStatistics } from '../api/analysis';
+import type { DataBudget, ObjectiveInfo } from '../api/objectives';
 export interface Pt { x: number; y: number }
 export interface Region { x: number; y: number; w: number; h: number }
 export interface Obstacle extends Pt { r: number }
@@ -27,7 +28,7 @@ export interface Job { title: string; stages: string[]; i: number; real?: boolea
 export interface RealLayer { href: string; bounds: BoundingBox }
 /** A finished analysis from the backend: images placed by geographic bounds, and real statistics. */
 export interface RealAnalysis {
-  id: string; missionId?: string; hazardBase: string;
+  id: string; missionId?: string; objectiveId?: string; hazardBase: string;
   layers: { elevation: RealLayer; slope: RealLayer; roughness?: RealLayer; science?: RealLayer };
   stats: RegionStatistics; warnings: string[]; notes: string[];
 }
@@ -45,7 +46,7 @@ export interface ChatCard {
 export interface ChatMsg { u: string; r: string; err?: boolean; note?: string; steps?: string[]; actions?: ChatAction[]; card?: ChatCard }
 export interface Warning { k: 'bad' | 'warn' | 'info'; t: string; at?: Pt }
 export interface LayerState { on: boolean; op: number }
-export type Cats = Record<'elev' | 'slope' | 'rough' | 'haz' | 'spec' | 'therm', boolean>;
+export type Cats = Record<'elev' | 'slope' | 'rough' | 'haz' | 'spec', boolean>;
 
 /** Everything the dashboard and the map read/write. Single source of truth. */
 export interface DataState {
@@ -59,6 +60,6 @@ export interface DataState {
   tab: Tab; focus: Pt | null; online: boolean; cache: boolean;
   job: Job | null; err: string; stale: boolean; selT: string | null;
   pk: Pkg[]; pan: Record<PanelKey, boolean>; bh: number; adv: boolean; lyOpen: boolean;
-  real: RealAnalysis | null; layers: Record<string, LayerState>; chat: ChatMsg[]; aiOpen: boolean; aiDraft: string; aiBar: string | null; focusZoom: number | null; routeSource: 'simulated' | 'real'; missionSource: 'simulated' | 'real'; routeNotes: string[]; guideText: string | null;
+  real: RealAnalysis | null; layers: Record<string, LayerState>; chat: ChatMsg[]; aiOpen: boolean; aiDraft: string; objectives: ObjectiveInfo[]; dataBudget: DataBudget | null; aiBar: string | null; focusZoom: number | null; routeSource: 'simulated' | 'real'; missionSource: 'simulated' | 'real'; routeNotes: string[]; guideText: string | null;
   assistantMode: 'gemma' | 'rule_based' | null; assistantModel: string | null; pendingQ: string | null;
 }

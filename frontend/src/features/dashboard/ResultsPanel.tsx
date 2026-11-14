@@ -1,4 +1,5 @@
 import { useStore } from '../../store/dashboardStore';
+import { objectiveLabel } from '../../api/objectives';
 import { budgetOf, combined } from '../../utils/derive';
 import { coarseShare, fmtCoord, fmtDuration } from '../../utils/geo';
 import BudgetBar from './BudgetBar';
@@ -44,7 +45,6 @@ function AnalyzeSummary() {
             {cats.haz && <span>Cells &gt; {slope}° <b>{s.hz.toFixed(0)}%</b></span>}
             {cats.spec && <span>Spectral <b>62% (partial)</b></span>}
             {cats.rough && <span>Roughness <b>needs backend</b></span>}
-            {cats.therm && <span>Thermal <b>coarse</b></span>}
           </div>
           <p>Resolution varies by layer, see Data coverage tab. Demo values.</p>
         </div>
@@ -165,7 +165,7 @@ export default function ResultsPanel() {
                   <i>→</i>
                   <div>{x.n}<span>{x.s.d.toFixed(1)} km · {fmtDuration(x.s.t)} · computed{x.s.over.length ? <> · <b className="wn">{x.s.over.length} steep samples</b></> : null}</span></div>
                 </div>
-                {x.t && <div className="st" onClick={() => s.gotoStep(i)}><i>◆</i><div>Examine {x.t.label ?? x.t.id}<span>{s.exam} min · {s.obj} · assumption</span></div></div>}
+                {x.t && <div className="st" onClick={() => s.gotoStep(i)}><i>◆</i><div>Examine {x.t.label ?? x.t.id}<span>{s.exam} min · {objectiveLabel(s.obj, s.objectives)} · assumption</span></div></div>}
               </div>
             ))}
             <p className="nt">Steps are planned actions; distances come from the mock route model.</p>
