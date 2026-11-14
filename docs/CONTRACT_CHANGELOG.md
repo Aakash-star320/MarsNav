@@ -1,0 +1,26 @@
+# Contract change log
+
+## 0.2.0 draft — cross-team implementation contracts
+
+This additive contract update aligns the original scaffold with the full MarsNav feature set. It is intentionally limited to shared models, endpoint skeletons, frontend mirrors, and documentation; it does not implement analyzer, cache, routing, map, dashboard, or AI behavior.
+
+### Required handoffs
+
+| Producer | Consumer | Contract |
+|---|---|---|
+| Data/cache | Analyzer | `AcquisitionRequest` -> `AcquisitionResult`, `DatasetAsset`, `DatasetRefreshJob` |
+| Analyzer | Routing and map | `RegionalAnalysisResult`, `ProcessedLayer`, `LocalGridMetadata`, `ProcessingProvenance` |
+| Routing | Dashboard, map, assistant | `RouteResult`, `RouteSegment`, `RouteAlternative`, `ConstraintConflict`, `RouteProvenance` |
+| AI | Dashboard and map | `AssistantResponse`, typed `AssistantToolCall`, `AssistantCitation`, `AssistantAction` |
+| Data/cache | Dashboard | `OfflinePackageRequest`, `OfflinePackageStatus` |
+
+### Compatibility and implementation rules
+
+- Existing fields remain available. New optional result metadata is additive.
+- `RouteRequest.analysis_version` and `ReplanRequest.original_request_version` are now required to prevent use of silently replaced analysis data.
+- `BoundingBox` now rejects east <= west, including antimeridian-crossing AOIs. Callers must split those AOIs before a request.
+- `ProcessedLayer.grid` may be absent for display-only layers. Routing and DEM-derived 3D must require it when metric grid operations are needed.
+- Assistant tool names are an allowlist. Tool arguments/results and map/dashboard actions must be derived from validated service results, not calculated by the model.
+- `relative_path` is an internal cache identifier. It must never be returned as an arbitrary file-serving URL.
+
+Before implementing a consumer, use the Pydantic model as the source of truth and mirror any approved new fields in `frontend/src/types/contracts.ts`. Regenerate and review OpenAPI in CI before merge.
