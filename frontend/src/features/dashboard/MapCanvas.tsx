@@ -115,7 +115,9 @@ export default function MapCanvas() {
   const L_ = s.layers;
   const drawing = s.pick === 'region';
   const only = s.showOnly;                 // set by "Show on map" in the assistant: everything else is hidden until the next plan
-  const segs = only ? [] : segsOf(s);
+  // With one site shown, keep the real mission path from the start up to that site and hide the rest.
+  const all = segsOf(s), upTo = only?.id ? all.findIndex((x) => x.t?.id === only.id) : -1;
+  const segs = !only ? all : upTo >= 0 ? all.slice(0, upTo + 1) : [];
   const stops = s.start && s.dest ? [s.start, ...s.wps, s.dest] : [];
   const main = s.mode === 'route' ? segs[0] : undefined;
   const legs = (() => {
@@ -254,8 +256,8 @@ export default function MapCanvas() {
             return <Marker key={t.id} p={t} k={k} color="#8b5cf6" glyph={o >= 0 ? String(o + 1) : '★'} label={t.label ?? t.id} hot={s.selT === t.id} onClick={() => s.selectTarget(t.id)} />;
           })}
           {!only && s.wps.map((w, i) => <Marker key={i} p={w} k={k} color="#fff" fg="#0b1220" glyph={letter(i + 1)} size={0.85} />)}
-          {!only && <Marker p={s.base} k={k} color="#2563eb" glyph="⌂" label="Base" />}
-          {!only && s.start && <Marker p={s.start} k={k} color="#16a34a" glyph="A" label="Start" />}
+          {<Marker p={s.base} k={k} color="#2563eb" glyph="⌂" label="Base" />}
+          {s.start && <Marker p={s.start} k={k} color="#16a34a" glyph="A" label="Start" />}
           {!only && s.dest && <Marker p={s.dest} k={k} color="#dc2626" glyph={letter(s.wps.length + 1)} label="Destination" />}
           {s.focus && <Pin p={s.focus} k={k}><circle r={22} fill="#e8aa3c33" stroke="#e8aa3c" strokeWidth={2} /></Pin>}
           {navP && <Pin p={navP} k={k}><circle r={16} fill="#4285f4" opacity={0.22} /><circle r={8} fill="#4285f4" stroke="#fff" strokeWidth={3} /><Tag text="Simulated astronaut" x={14} y={-14} /></Pin>}

@@ -488,7 +488,7 @@ export const useStore = create<Store>((set, get) => {
         .catch(() => set({ assistantMode: 'rule_based', assistantModel: null }));
     },
     /** Collapses the chat to a small bar and brings the item into view on the map. */
-    showOnMap: (a) => a.open ? openPanels(true, false, true) : a.at && set((s) => ({ showOnly: { id: a.id ?? null }, focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
+    showOnMap: (a) => a.open ? openPanels(true, false, true) : a.at && set((s) => ({ showOnly: a.id ? { id: a.id } : null, focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
     setAiDraft: (v) => set({ aiDraft: v }),
 
     navStart: () => {
