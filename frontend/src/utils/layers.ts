@@ -8,14 +8,12 @@ export const LAYERS: LayerMeta[] = [
   { id: 'elev', n: 'Elevation', s: 'Simulated demo terrain (not the imagery below)', r: '~20 m grid' },
   { id: 'slope', n: 'Slope', s: 'Simulated, derived from the demo terrain', r: '~20 m' },
   { id: 'haz', n: 'Potential hazards', s: 'Slope above your limit', r: '~20 m' },
-  { id: 'therm', n: 'Thermal', s: 'Simulated demo layer', r: 'coarse' },
   { id: 'spec', n: 'Mineral / spectral', s: 'Unavailable: no product downloaded. Missing coverage ≠ no minerals.', na: true },
-  { id: 'cov', n: 'Data coverage', s: 'Detailed / moderate / coarse' },
 ];
 
 export const defaultLayers = (): Record<string, LayerState> => ({
   opt: { on: true, op: 0.9 }, elev: { on: false, op: 0.6 }, slope: { on: false, op: 0.6 },
-  haz: { on: false, op: 0.7 }, therm: { on: false, op: 0.5 }, spec: { on: false, op: 0.5 }, cov: { on: false, op: 0.45 },
+  haz: { on: false, op: 0.7 }, spec: { on: false, op: 0.5 },
 });
 
 /** Layer labels once a real analysis exists: the layers it supplies say so, the rest stay simulated. */

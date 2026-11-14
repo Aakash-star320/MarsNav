@@ -93,7 +93,6 @@ export default function MapCanvas() {
   const segs = segsOf(s);
   const c = s.nav ? combined(s) : null;
   const navP = c && s.nav ? c.s.p[Math.min(s.nav.i, c.s.p.length - 1)] : null;
-  const cov = s.region ?? { x: s.base.x - 200, y: s.base.y - 150, w: 400, h: 300 };
   const latest = useRef(s);
   latest.current = s;
 
@@ -189,14 +188,6 @@ export default function MapCanvas() {
           {L_.slope.on && (s.real ? <RealRaster href={s.real.layers.slope.href} bounds={s.real.layers.slope.bounds} op={L_.slope.op} /> : <GridLayer id="slope" op={L_.slope.op} slope={s.slope} />)}
           {L_.haz.on && (s.real ? <RealRaster href={`${s.real.hazardBase}?slope_limit_deg=${s.slope}`} bounds={s.real.layers.elevation.bounds} op={L_.haz.op} /> : <GridLayer id="haz" op={L_.haz.op} slope={s.slope} />)}
           {L_.spec.on && s.real?.layers.science && <RealRaster href={s.real.layers.science.href} bounds={s.real.layers.science.bounds} op={L_.spec.op} />}
-          {L_.therm.on && <ellipse cx={260} cy={190} rx={150} ry={90} fill="#e0603a" opacity={L_.therm.op * 0.7} />}
-          {L_.cov.on && (
-            <g opacity={L_.cov.op}>
-              <rect x={-2000} y={-2000} width={4800} height={4500} fill="#6b7a94" />
-              <rect x={cov.x - 150} y={cov.y - 120} width={cov.w + 300} height={cov.h + 240} fill="#e8aa3c" />
-              <rect x={cov.x} y={cov.y} width={cov.w} height={cov.h} fill="#2dd4d0" />
-            </g>
-          )}
           {!s.real && !s.online && <rect x={0} y={0} width={W} height={H} fill="none" stroke="#ffffff" strokeOpacity={0.55} strokeWidth={1.5} strokeDasharray="2 6" vectorEffect={NS} />}
           {!s.real && !s.online && k.a * W > 420 && <Pin p={{ x: 0, y: 0 }} k={k}><text x={6} y={16} fill="#fff" fillOpacity={0.8} fontSize={11} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">Planning area · 16 × 10 km (routes are simulated inside it)</text></Pin>}
           {s.region && <rect x={s.region.x} y={s.region.y} width={s.region.w} height={s.region.h} fill="none" stroke="#2dd4d0" strokeWidth={2} strokeDasharray="8 4" vectorEffect={NS} />}
