@@ -3,6 +3,7 @@ import { objectiveLabel } from '../../api/objectives';
 import { budgetOf, combined } from '../../utils/derive';
 import { coarseShare, fmtCoord, fmtDuration } from '../../utils/geo';
 import BudgetBar from './BudgetBar';
+import RadiationPanel from './RadiationPanel';
 
 const n = (v: number | null | undefined, d = 0, unit = '') => (v == null || !Number.isFinite(v) ? 'n/a' : v.toLocaleString('en-US', { maximumFractionDigits: d, minimumFractionDigits: d }) + unit);
 
@@ -131,6 +132,10 @@ export default function ResultsPanel() {
             <button className="pri" style={{ marginTop: 4 }} disabled={!!nav} onClick={s.navStart}>Start Navigation (simulation)</button>
           </>
         )}
+
+        {(c && b) || s.real
+          ? <RadiationPanel hours={c && b ? (b.u - s.res) / 60 : null} meanElevationM={s.real?.stats.elevation_mean_m ?? null} />
+          : null}
 
         <h2>Science targets</h2>
         {targets.length ? targets.map((t) => (

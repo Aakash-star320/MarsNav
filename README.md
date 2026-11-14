@@ -19,6 +19,7 @@ It is a scientific **planning prototype**, not a certified EVA system. Walking p
 | **Science missions** | Picks the analysis' science targets with the best value per minute that fit the oxygen budget, plans every leg, and lists the targets it left out with the reason |
 | **Assistant** | Docked chat panel with result cards and "show on map" actions. With a model configured it answers questions through read-only, validated tools; without one a rule-based assistant answers |
 | **Safety limits** | Maximum slope, oxygen and duration budgets, reserve, return to base, unknown terrain excluded (never treated as safe), obstacles you mark |
+| **Radiation** | A typical-exposure panel: published Curiosity RAD measurements (about 0.67 mSv per day at the surface) turned into the dose for your planned time outside, with its source and what it does not cover. A stored figure, not live data and not a forecast |
 | **Data cap** | 64 MiB per analysis and 256 MiB per session, checked before anything is fetched |
 
 ## Data from NASA missions
@@ -59,7 +60,7 @@ One FastAPI backend and one React + TypeScript frontend share typed contracts ([
 ## Known limits
 
 - **Resolution.** MOLA is 463 m per cell. Boulders, small craters and other hazards below that size are invisible, and slope above a limit is not a safety assessment. Finer terrain (CTX, HiRISE) would plug into the same pipeline but is not built.
-- **Safety data.** There is no radiation, weather or thermal layer yet.
+- **Safety data.** Radiation is a typical published value (one site, near solar maximum; solar storms are not modelled). There is no live Mars weather or space-weather feed and no thermal layer.
 - **Spectral candidates are screens,** not identified minerals, and missing CRISM coverage is never evidence of absence.
 - **Objectives.** Three are implemented. Everything else is answered with what NASA's catalog holds and an honest "not analysable yet".
 - **Routes and plans are kept in memory**; after a backend restart plan again. Analyses are saved on disk and survive restarts.
