@@ -66,10 +66,11 @@ function JobCard() {
 }
 
 export default function ChatPanel() {
-  const { aiOpen, toggleAi, chat, aiDraft, setAiDraft, sendChat, online, clearChat } = useStore();
+  const { aiOpen, toggleAi, chat, aiDraft, setAiDraft, sendChat, online, clearChat, assistantMode, assistantModel, pendingQ, refreshAssistant } = useStore();
   const endRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [chat.length, aiOpen]);
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [chat.length, aiOpen, pendingQ]);
+  useEffect(() => { if (aiOpen && assistantMode === null) refreshAssistant(); }, [aiOpen]);
   useEffect(() => {                                   // composer grows with its text, up to a limit
     const el = boxRef.current;
     if (!el) return;
@@ -83,8 +84,9 @@ export default function ChatPanel() {
       <header className="cx-head">
         <span className="cx-orb"><Sparkle size={17} /></span>
         <div className="cx-title"><b>MarsNav Assistant</b>
-          <span className={'cx-mode' + (online ? '' : ' off')} title="The assistant only runs the verified actions the buttons run. It does not use a language model yet.">
-            <i />{online ? 'Rule-based · verified actions only' : 'Offline'}
+          <span className={'cx-mode' + (online ? '' : ' off')}
+            title={assistantMode === 'gemma' ? 'Answers come from a hosted language model. It can only look things up through checked tools, and its tool calls are validated.' : 'No language model is connected: the assistant runs the same checked actions as the buttons.'}>
+            <i />{!online ? 'Offline' : assistantMode === 'gemma' ? `Gemma · ${assistantModel ?? 'model'}` : 'Rule-based · verified actions only'}
           </span>
         </div>
         {chat.length > 0 && <button className="cx-ghost" onClick={clearChat} title="Start a new conversation">New chat</button>}
@@ -92,7 +94,7 @@ export default function ChatPanel() {
       </header>
 
       <div className="cx-body">
-        {chat.length === 0 && !aiDraft ? (
+        {chat.length === 0 && !aiDraft && !pendingQ ? (
           <div className="cx-empty">
             <span className="cx-bigorb"><Sparkle size={30} /></span>
             <h2>What would you like to explore?</h2>
@@ -122,6 +124,12 @@ export default function ChatPanel() {
                 </div>
               </div>
             ))}
+            {pendingQ && (
+              <div className="cx-turn">
+                <div className="cx-user"><div>{pendingQ}</div></div>
+                <div className="cx-bot"><span className="cx-av"><Sparkle size={13} /></span><div className="cx-bot-c"><div className="cx-typing" aria-label="The assistant is working"><i /><i /><i /></div></div></div>
+              </div>
+            )}
             <JobCard />
             <div ref={endRef} />
           </div>

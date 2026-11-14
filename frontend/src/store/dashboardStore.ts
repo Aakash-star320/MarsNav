@@ -6,7 +6,8 @@ import { useMissionStore } from './missionStore';
 import { PLANNING_AREA, autoTerrainRegion, getViewport } from '../utils/viewport';
 import { API_BASE, AnalysisError, cancelAnalysis, createAnalysis, fetchMapPackage, waitForAnalysis } from '../api/analysis';
 import { regionToBounds, toDashboardTarget } from '../api/mapping';
-import { DEG_LON_PER_PX, KM_PER_PX } from '../utils/geo';
+import { KM_PER_PX, regionZoom } from '../utils/geo';
+import { askAssistant, fetchAssistantStatus, toChatMessage } from '../api/assistant';
 import { defaultLayers } from '../utils/layers';
 
 export interface Actions {
@@ -38,6 +39,7 @@ export interface Actions {
   setFocus: (p: Pt | null) => void;
   toggleOnline: () => void;
   toggleAi: () => void;
+  refreshAssistant: () => void;
   clearChat: () => void;
   showOnMap: (a: ChatAction) => void;
   setAiDraft: (v: string) => void;
@@ -71,7 +73,7 @@ const initial: DataState = {
   job: null, err: '', stale: false, selT: null, real: null,
   pk: [{ n: 'Jezero region package (demo)', sz: '148 MB', st: 'Downloaded', up: '2026-11-12' }],
   pan: { L: true, R: false, B: false }, bh: 260, adv: false, lyOpen: false,
-  layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '', aiBar: null, focusZoom: null,
+  layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '', aiBar: null, focusZoom: null, assistantMode: null, assistantModel: null, pendingQ: null,
 };
 
 export const useStore = create<Store>((set, get) => {
@@ -112,7 +114,7 @@ export const useStore = create<Store>((set, get) => {
   const BACKEND_STAGE: Record<string, number> = { queued: 0, discovery: 0, selection: 1, downloading: 2, preprocessing: 3, terrain: 4, science: 5 };
 
   /** Map action that frames a whole region (zoom chosen so the region spans most of the screen). */
-  const regionAction = (r: Region): ChatAction => ({ label: 'Show region on map', at: { x: r.x + r.w / 2, y: r.y + r.h / 2 }, zoom: Math.min(15, Math.max(4, Math.log2(650 / (Math.max(r.w, 1) * DEG_LON_PER_PX)))) });
+  const regionAction = (r: Region): ChatAction => ({ label: 'Show region on map', at: { x: r.x + r.w / 2, y: r.y + r.h / 2 }, zoom: regionZoom(r) });
   let chatWait = false;     // set when the assistant started an analysis, so it can report the outcome in the chat
   const botSays = (m: ChatMsg) => set((s) => ({ chat: [...s.chat, m], aiBar: s.aiOpen ? null : m.r }));
   const runRealAnalysis = async (region: Region, terrainOnly = false) => {
@@ -300,8 +302,14 @@ export const useStore = create<Store>((set, get) => {
     focusWarning: (at) => { if (at) set({ focus: at, focusZoom: null }); },
     setFocus: (p) => set({ focus: p, focusZoom: null }),
     toggleOnline: () => set((s) => ({ online: !s.online })),
-    toggleAi: () => set((s) => ({ aiOpen: !s.aiOpen, aiBar: null })),
-    clearChat: () => set({ chat: [], aiDraft: '', aiBar: null }),
+    toggleAi: () => { set((s) => ({ aiOpen: !s.aiOpen, aiBar: null })); if (get().aiOpen) get().refreshAssistant(); },
+    clearChat: () => set({ chat: [], aiDraft: '', aiBar: null, pendingQ: null }),
+    /** Asks the backend which assistant is active (hosted Gemma model or rule-based). Unreachable counts as rule-based. */
+    refreshAssistant: () => {
+      fetchAssistantStatus()
+        .then((st) => set({ assistantMode: st.mode, assistantModel: st.model ?? null }))
+        .catch(() => set({ assistantMode: 'rule_based', assistantModel: null }));
+    },
     /** Collapses the chat to a small bar and brings the item into view on the map. */
     showOnMap: (a) => a.open ? openPanels(true, false) : a.at && set((s) => ({ focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
     setAiDraft: (v) => set({ aiDraft: v }),
@@ -386,8 +394,20 @@ export const useStore = create<Store>((set, get) => {
       if (!q) return;
       const say = (r: string, extra: { err?: boolean; note?: string; steps?: string[]; actions?: ChatAction[] } = {}) =>
         set((s) => ({ chat: [...s.chat, { u: q, r, ...extra }], aiDraft: '' }));
-      if (!get().online) { say('Service unavailable: the hosted assistant needs internet. Manual planning still works.', { err: true }); return; }
+      if (!get().online) { say('Service unavailable: the assistant needs internet. Manual planning still works.', { err: true }); return; }
       const l = q.toLowerCase().replace(/\b(two|four)\b/g, (m) => (m === 'two' ? '2' : '4'));
+      const askBackend = () => {
+        const st = get();
+        set({ pendingQ: q, aiDraft: '' });
+        askAssistant(q, st.real?.id, st.region ? regionToBounds(st.region) : undefined)
+          .then((resp) => set((s) => ({ chat: [...s.chat, { u: q, ...toChatMessage(resp, get().targets) }], pendingQ: null })))
+          .catch((e: Error) => set((s) => ({
+            chat: [...s.chat, { u: q, r: e instanceof TypeError ? 'I could not reach the assistant service. Start the backend and try again.' : e.message || 'The assistant could not answer.', err: true }],
+            pendingQ: null,
+          })));
+      };
+      // With a language model, questions (not commands) go straight to it; commands still run the checked UI actions below.
+      if (get().assistantMode === 'gemma' && /\?|^(what|why|how|which|where|who|when|explain|tell|describe|is|are|does|do|can|could|show me|summari[sz]e)\b/.test(l)) { askBackend(); return; }
       const n = (l.match(/(\d+(\.\d+)?)/) || [])[1];
       const did: string[] = [];
       if (/why|important/.test(l) && /mineral/.test(l)) {
@@ -418,7 +438,7 @@ export const useStore = create<Store>((set, get) => {
         if (/return|remaining/.test(l) && get().routes.length) { get().replan(); did.push('Recalculated route'); }
         else { get().generate(); did.push('Started Generate Routes'); }
       }
-      if (!did.length) { say('I can analyze a region, plan a route or mission, change limits, or explain science. Try a suggestion.'); return; }
+      if (!did.length) { askBackend(); return; }       // not a command: let the assistant service answer (it states its limits itself)
 const rg = get().region, acts: ChatAction[] = rg && did.some((d) => /Analyze/.test(d)) ? [regionAction(rg)] : [];
       say('Done. I applied these checked actions; I will report back here when it finishes.', { steps: did, actions: acts });
     },

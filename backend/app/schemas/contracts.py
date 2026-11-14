@@ -477,6 +477,8 @@ class AssistantRequest(BaseModel):
     mission_id: UUID
     message: str = Field(min_length=1, max_length=4000)
     conversation_id: UUID | None = None
+    analysis_id: UUID | None = None          # the analysis the user is looking at, if any
+    selected_area: BoundingBox | None = None  # the area currently selected in the UI, if any
 
 
 class AssistantResponse(BaseModel):

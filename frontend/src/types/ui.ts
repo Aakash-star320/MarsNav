@@ -59,4 +59,5 @@ export interface DataState {
   job: Job | null; err: string; stale: boolean; selT: string | null;
   pk: Pkg[]; pan: Record<PanelKey, boolean>; bh: number; adv: boolean; lyOpen: boolean;
   real: RealAnalysis | null; layers: Record<string, LayerState>; chat: ChatMsg[]; aiOpen: boolean; aiDraft: string; aiBar: string | null; focusZoom: number | null;
+  assistantMode: 'gemma' | 'rule_based' | null; assistantModel: string | null; pendingQ: string | null;
 }

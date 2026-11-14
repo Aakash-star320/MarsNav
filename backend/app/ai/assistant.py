@@ -82,13 +82,15 @@ class AssistantService:
         def target_id(done: bool) -> str | None:
             if explicit:
                 return explicit.group(0)
+            if req.analysis_id is not None:
+                return str(req.analysis_id)
             job = latest_done if done else latest
             return str(job.id) if job else None
 
         if _has(msg, "route"):
             return Plan([("route_create", {})])
         if _has(msg, "start") and not _has(msg, "status"):
-            bounds = parse_bounds(req.message) or self._mission_bounds(req.mission_id)
+            bounds = parse_bounds(req.message) or req.selected_area or self._mission_bounds(req.mission_id)
             if bounds is None:
                 return Plan(reply="Which area should I analyze? Select it on the map, or give the edges in degrees, for example: "
                                   "west 77.0 south 18.1 east 77.8 north 18.8. I won't guess an area.")
@@ -127,7 +129,8 @@ class AssistantService:
                                  warnings=list(dict.fromkeys(warnings)))
 
     # -- wording: values are copied from tool results ----------------------------------------------
-    def _describe(self, call: AssistantToolCall) -> tuple[str, list[AssistantAction], list[AssistantCitation], list[str]]:
+    @staticmethod
+    def _describe(call: AssistantToolCall) -> tuple[str, list[AssistantAction], list[AssistantCitation], list[str]]:
         if call.status != "completed" or call.result is None:
             return f"I couldn't do that: {call.error_message}", [], [], []
         r, name = call.result, call.name

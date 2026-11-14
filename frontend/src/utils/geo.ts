@@ -98,3 +98,6 @@ export function zoneOf(p: Pt, region: Region | null, base: Pt): 0 | 1 | 2 {
 }
 export const coarseShare = (s: Stats, region: Region | null, base: Pt) =>
   s.p.filter((q) => zoneOf(q, region, base) === 2).length / s.p.length;
+
+/** Map zoom (angular CRS, 2^zoom px per degree) at which a region spans most of the screen. */
+export const regionZoom = (r: Region): number => Math.min(15, Math.max(4, Math.log2(650 / (Math.max(r.w, 1) * DEG_LON_PER_PX))));
