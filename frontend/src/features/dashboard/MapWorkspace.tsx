@@ -51,25 +51,21 @@ function Legend() {
       ) : (
         <button className="ov lgpill" onClick={() => setOpen(true)} aria-label="Open legend"><i className="dot" />Legend</button>
       )}
-      <span className="ov lgres" title="Terrain resolution: features smaller than a cell, such as boulders and small craters, cannot be seen">{cell}</span>
+      {real && <span className="ov lgres" title="Terrain resolution: features smaller than a cell, such as boulders and small craters, cannot be seen">{cell}</span>}
     </div>
   );
 }
 
 function JobOverlay() {
-  const { job, cache, cancelJob } = useStore();
+  const { job, cancelJob } = useStore();
   if (!job) return null;
+  const pct = Math.max(6, Math.min(96, ((job.i + 0.5) / Math.max(1, job.stages.length)) * 100));
   return (
-    <div className="ov" id="jb">
-      <b>{job.title}…</b> <span className={job.real ? 'p g' : 'p w'}>{job.real ? 'real analysis' : 'simulated job'}</span>
-      {job.stages.map((x, i) => (
-        <div key={x} style={{ fontSize: 13, color: i < job.i ? '#2dd4d0' : i === job.i ? '#fff' : '#b4c1d8' }}>
-          {i < job.i ? '✓' : i === job.i ? '●' : '○'} {x}{!job.real && x === 'Download' && cache ? ' (cache reused)' : ''}
-        </div>
-      ))}
-      <div className="bar"><i style={{ width: `${(job.i / job.stages.length) * 100}%`, background: '#2dd4d0' }} /></div>
-      <div className="nt">Next: {job.stages[job.i + 1] ?? 'finish'}.{job.real ? ' Progress follows the backend job.' : ' Simulated progress.'}</div>
-      <button style={{ marginTop: 6 }} onClick={cancelJob}>Cancel</button>
+    <div className="ov" id="jb" role="status" aria-live="polite">
+      <div className="jspin" aria-hidden="true" />
+      <b>{job.title}…</b>
+      <div className="jbar"><i style={{ width: `${pct}%` }} /></div>
+      <button onClick={cancelJob}>Cancel</button>
     </div>
   );
 }

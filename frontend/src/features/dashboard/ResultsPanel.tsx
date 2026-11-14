@@ -45,7 +45,7 @@ function AnalyzeSummary() {
             {cats.slope && <span>Mean slope <b>{s.sl.toFixed(1)}°</b></span>}
             {cats.haz && <span>Cells &gt; {slope}° <b>{s.hz.toFixed(0)}%</b></span>}
             {cats.spec && <span>Spectral <b>62% (partial)</b></span>}
-            {cats.rough && <span>Roughness <b>needs backend</b></span>}
+            {cats.rough && <span>Roughness <b>not available</b></span>}
           </div>
           <p>Resolution varies by layer, see Data coverage tab. Demo values.</p>
         </div>
@@ -175,7 +175,7 @@ export default function ResultsPanel() {
                 {x.t && <div className="st" onClick={() => s.gotoStep(i)}><i>◆</i><div>Examine {x.t.label ?? x.t.id}<span>{s.exam} min · {objectiveLabel(s.obj, s.objectives)} · assumption</span></div></div>}
               </div>
             ))}
-            <p className="nt">Steps are planned actions; distances come from the mock route model.</p>
+            <p className="nt">Steps are planned actions.</p>
           </>
         )}
       </div>
