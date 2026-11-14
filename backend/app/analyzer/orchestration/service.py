@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable
@@ -19,6 +20,7 @@ from uuid import UUID, uuid4
 from app.analyzer.preprocessing.terrain_bundle import TerrainBundleError, TerrainManifest, load_terrain_bundle
 from app.analyzer.publishing.science_layer import load_science_layer
 from app.analyzer.validation.cache_keys import analysis_result_key, stable_hash
+from app.analyzer.validation.data_budget import DataBudget, DataBudgetError, JobMeter
 from app.schemas import AnalysisJob, CreateAnalysisRequest, JobStage, RegionalAnalysisResult
 
 from .pipeline import ANALYSIS_VERSION, AnalysisError, AnalyzerDeps, run_region_analysis
@@ -42,8 +44,8 @@ def _write_atomic(path: Path, text: str) -> None:
 
 
 class AnalysisService:
-    def __init__(self, deps: AnalyzerDeps, clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc)) -> None:
-        self._deps, self._clock = deps, clock
+    def __init__(self, deps: AnalyzerDeps, clock: Callable[[], datetime] = lambda: datetime.now(timezone.utc), budget: DataBudget | None = None) -> None:
+        self._deps, self._clock, self._budget = deps, clock, budget
         self._lock = threading.Lock()
         self._jobs: dict[UUID, AnalysisJob] = {}
         self._by_key: dict[str, UUID] = {}
@@ -174,6 +176,17 @@ class AnalysisService:
             self._jobs[job_id] = job
         self._save_job(job)
 
+    def _metered_deps(self) -> tuple[AnalyzerDeps, JobMeter | None]:
+        """This job's dependencies with every remote read (elevation rows, spectral bands) counted against the data budget."""
+        if self._budget is None:
+            return self._deps, None
+        meter = self._budget.start_job()
+        science = self._deps.science
+        if science is not None:
+            inner = science.range_fetcher_for
+            science = replace(science, range_fetcher_for=lambda url: self._budget.metered(inner(url), meter))
+        return replace(self._deps, fetch_range=self._budget.metered(self._deps.fetch_range, meter), science=science), meter
+
     def _run(self, job_id: UUID, req: CreateAnalysisRequest, key: str) -> None:
         def progress(stage: JobStage, percent: int, message: str) -> None:
             if job_id in self._cancelled:
@@ -181,15 +194,24 @@ class AnalysisService:
             self._update(job_id, stage=stage, progress_percent=percent, message=message)
         if job_id in self._cancelled:
             return
+        deps, meter = self._metered_deps()
         try:
-            result = run_region_analysis(job_id, req, self._deps, progress, self._clock())
+            result = run_region_analysis(job_id, req, deps, progress, self._clock())
             if job_id in self._cancelled:
                 raise _Cancelled()
             _write_atomic(self._deps.out_dir / str(job_id) / "result.json", result.model_dump_json())
-            self._update(job_id, stage=JobStage.completed, progress_percent=100, message="Analysis complete", warnings=result.warnings)
+            warnings = [*result.warnings]
+            if meter is not None and meter.refused is not None:   # the spectral reads fail softly; say why they stopped
+                warnings.append(f"Some spectral data was not read: {meter.refused}.")
+            self._update(job_id, stage=JobStage.completed, progress_percent=100, message="Analysis complete", warnings=warnings)
         except _Cancelled:
             self._discard_partial(job_id)
-        except AnalysisError as exc:
+        except DataBudgetError as exc:
             self._update(job_id, stage=JobStage.failed, error_code=exc.code, message=str(exc))
+        except AnalysisError as exc:
+            if meter is not None and meter.refused is not None:   # the elevation reader reported the refusal in its own words
+                self._update(job_id, stage=JobStage.failed, error_code=meter.refused.code, message=str(meter.refused))
+            else:
+                self._update(job_id, stage=JobStage.failed, error_code=exc.code, message=str(exc))
         except Exception as exc:  # unexpected: report without leaking internals, keep the worker alive
             self._update(job_id, stage=JobStage.failed, error_code="internal_error", message=f"Unexpected {type(exc).__name__} during analysis")
