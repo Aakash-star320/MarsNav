@@ -11,7 +11,9 @@ MarsNav is a Martian Marswalk planner for NASA Space Apps 2026. Given a region o
 | Dashboard map | Zoomable and pannable Mars map (NASA Mars Trek imagery), analysis layers placed by their geographic bounds, pins for start, destination, base, waypoints and targets |
 | 2D / 3D | 3D shows the real elevation as a solid block with the imagery draped over it; it reads the visible area by itself if nothing has been analysed |
 | Routes | Real routes on the analysed terrain from the routing service: shortest / safest / balanced comparison, waypoints, a base point for the return trip, obstacles with replanning, an elevation profile and navigation guidance |
+| Science objectives | A small registry: hydrated minerals (CRISM) and two terrain-based objectives (flat safe sites, high vantage points) found in the elevation data. For any other objective the assistant asks NASA's catalog whether data covers the area and says honestly what exists and that this tool cannot analyse it yet |
 | Science missions | Real mission planner: picks the analysis' science targets that fit the oxygen budget, plans every leg and says why a target was left out |
+| Data cap | Each analysis may read at most 64 MiB and a session at most 256 MiB (`ANALYZER_MAX_DOWNLOAD_BYTES`, `ANALYZER_SESSION_CAP_BYTES`); requests that would exceed it are refused before anything is fetched |
 | Assistant | Docked chat panel with result cards and "show on map" actions. It uses a hosted model (Gemma, or a Gemini model, named in the panel header) when `GEMMA_MODEL` and `GEMMA_API_KEY` are set and a rule-based assistant otherwise; the model can only call read-only, validated tools |
 | Contracts | Python and TypeScript mirrors; see [`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md) and [`docs/CONTRACT_CHANGELOG.md`](docs/CONTRACT_CHANGELOG.md) |
 | Not built | Download service and cache, the database-backed mission store, document search (RAG), other science objectives, finer terrain than 463 m (see [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md)) |
@@ -55,8 +57,8 @@ Requirements: Python **3.11 or 3.12** (not 3.13 or newer), Node.js 20 or newer. 
 1. Choose **Analyze Region**, drag a box around Jezero crater (about 20 km across) and press **Analyze Region**. You get real terrain, a statistics summary and a CRISM candidate.
 2. Switch to **3D** to see the terrain as a block with the imagery draped on it, then back to **2D** (your zoom is kept).
 3. Choose **Plan Route**, set a Start and a Destination anywhere (up to about 45 km apart) and press **Generate Routes**: the area around them is analysed first, then you get real routes. Compare shortest / safest / balanced, check the elevation profile, then try **Report obstacle** to replan.
-4. Choose **Plan Scientific Mission** and press **Plan Mission** (raise the oxygen hours if it does not fit).
-5. Open **Ask AI assistant**: "Analyze this region", or "How steep is this area?".
+4. Choose **Plan Scientific Mission**, pick an objective, set the oxygen (about 8 hours for the Jezero sites; at walking pace 4 hours is often too little, and the app says so) and press **Plan Mission**.
+5. Open **Ask AI assistant**: "Analyze this region", "How steep is this area?", or "Plan a science journey to find flat safe sites with 8 hours of oxygen". Ask for something we cannot analyse (for example boxwork formations) to see the honest catalog answer.
 
 Analyses are saved under `data/derived/analyses/`, so repeating a request for the same area is instant, even after a restart. Routes and mission plans are kept in memory: after restarting the backend, plan them again.
 

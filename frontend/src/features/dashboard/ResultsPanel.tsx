@@ -139,7 +139,9 @@ export default function ResultsPanel() {
             <div className="g"><span>Location <b>{fmtCoord(t)}</b></span><span>Confidence <b>{t.conf}</b></span></div>
             {t.evidence ? (
               <>
-                <p>Candidate spectral signature, not a confirmed identification: check the spectrum before relying on it. The score is a heuristic rank, not a probability.</p>
+                {t.objective && t.objective !== 'hydrated_minerals'
+                  ? <p>Candidate site picked from the 463 m elevation data by a documented rule, not surveyed: check the imagery before relying on it. The score is a heuristic rank, not a probability.</p>
+                  : <p>Candidate spectral signature, not a confirmed identification: check the spectrum before relying on it. The score is a heuristic rank, not a probability.</p>}
                 <details><summary>Evidence and how it was ranked</summary>
                   {t.evidence.map((e, i) => <p key={i} className="nt">{e}</p>)}
                   {t.rank && <p className="nt">{t.rank}</p>}

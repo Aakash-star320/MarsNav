@@ -14,7 +14,7 @@ export interface Stats {
   p: Pt[]; d: number; up: number; dn: number; mx: number; av: number;
   cum: number[]; el: number[]; sl: number[]; over: number[]; t: number;
 }
-export interface Target { id: string; cat: string; x: number; y: number; score: number; conf: string; label?: string; evidence?: string[]; rank?: string }
+export interface Target { id: string; cat: string; x: number; y: number; score: number; conf: string; label?: string; evidence?: string[]; rank?: string; objective?: string }
 export interface Dest extends Pt { id?: string }
 /** `src` is set for routes that came from the routing service: the route's own id, the id to replan through, and the request version. */
 export interface Route { k: Preset; n: string; c: string; out: Stats; ret: Stats | null; bend: number; src?: { id: string; replanId: string; version: string } }
