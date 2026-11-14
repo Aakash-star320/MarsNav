@@ -361,3 +361,15 @@ th { letter-spacing: 0.05em; }
 .jbar i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--teal2), var(--teal)); transition: width .5s ease; }
 @keyframes jspin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .jspin { animation-duration: 3s; } }
+
+/* Smaller windows: the assistant and the results slide over the map instead of squeezing it */
+@media (max-width: 1400px) {
+  #C { position: absolute; right: 0; top: 0; bottom: 0; z-index: 8; width: min(440px, 100%); box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5); }
+  #L { width: 270px; }
+  #R:not(.col) { position: absolute; right: 0; top: 0; bottom: 0; z-index: 7; width: min(330px, 92%); box-shadow: -18px 0 40px rgba(0, 0, 0, 0.45); }
+}
+@media (max-width: 1000px) {
+  #L:not(.col) { position: absolute; left: 0; top: 0; bottom: 0; z-index: 7; width: min(300px, 90%); box-shadow: 18px 0 40px rgba(0, 0, 0, 0.45); }
+  .topbar .hchips { display: none; }
+  #C { width: 100%; }
+}

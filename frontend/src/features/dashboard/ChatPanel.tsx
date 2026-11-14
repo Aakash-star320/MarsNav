@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../../store/dashboardStore';
 import type { ChatAction, ChatCard } from '../../types/ui';
-import { modelLabel } from '../../api/assistant';
 
 const SUGGESTIONS: { icon: string; title: string; desc: string; q: string }[] = [
   { icon: '◎', title: 'Analyze this region', desc: 'Read real terrain and screen for hydrated minerals', q: 'Analyze this region' },
@@ -67,7 +66,7 @@ function JobCard() {
 }
 
 export default function ChatPanel() {
-  const { aiOpen, toggleAi, chat, aiDraft, setAiDraft, sendChat, online, clearChat, assistantMode, assistantModel, pendingQ, refreshAssistant } = useStore();
+  const { aiOpen, toggleAi, chat, aiDraft, setAiDraft, sendChat, online, clearChat, assistantMode, pendingQ, refreshAssistant } = useStore();
   const endRef = useRef<HTMLDivElement>(null);
   const boxRef = useRef<HTMLTextAreaElement>(null);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [chat.length, aiOpen, pendingQ]);
@@ -84,11 +83,8 @@ export default function ChatPanel() {
     <aside id="C" aria-label="MarsNav assistant">
       <header className="cx-head">
         <span className="cx-orb"><Sparkle size={17} /></span>
-        <div className="cx-title"><b>MarsNav Assistant</b>
-          <span className={'cx-mode' + (online ? '' : ' off')}
-            title={assistantMode === 'gemma' ? 'Answers come from a hosted language model. It can only look things up through checked tools, and its tool calls are validated.' : 'No language model is connected: the assistant runs the same checked actions as the buttons.'}>
-            <i />{!online ? 'Offline' : assistantMode === 'gemma' ? modelLabel(assistantModel) : 'Rule-based · verified actions only'}
-          </span>
+        <div className="cx-title"><b>Assistant</b>
+          {!online && <span className="cx-mode off"><i />Offline</span>}
         </div>
         {chat.length > 0 && <button className="cx-ghost" onClick={clearChat} title="Start a new conversation">New chat</button>}
         <button className="cx-x" onClick={toggleAi} aria-label="Close assistant">×</button>
