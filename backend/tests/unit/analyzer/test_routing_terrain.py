@@ -13,6 +13,7 @@ from app.analyzer.integration.routing_terrain import TerrainAccessError, load_ro
 from app.analyzer.orchestration.pipeline import ANALYSIS_VERSION, AnalyzerDeps
 from app.analyzer.orchestration.service import AnalysisService
 from app.api.routes import analyses
+from app.routing.analysis_adapter import adapt_routing_terrain
 from app.connectors.usgs.mola import MolaLayout
 from app.schemas import BoundingBox, CreateAnalysisRequest, JobStage, LonLat, RegionOfInterest
 
@@ -44,6 +45,33 @@ def test_returns_verified_arrays_and_grid(tmp_path) -> None:
     assert np.array_equal(np.isfinite(t.elevation_m), t.valid)            # NaN exactly where invalid
     assert not t.valid.all() and not t.is_usable(*np.argwhere(~t.valid)[0])
     assert t.sources[0]["product_id"] == "Mars_MGS_MOLA_DEM_mosaic_global_463m" and t.limitations
+
+
+def test_actual_analyzer_mars_grid_adapts_without_losing_alignment(tmp_path) -> None:
+    svc, aid = make_service(tmp_path)
+    routing = load_routing_terrain(svc, aid, ANALYSIS_VERSION)
+    result = svc.get_result(aid)
+    adapted = adapt_routing_terrain(routing, result)
+
+    assert "Mars" in routing.grid.crs_wkt
+    assert adapted.grid.spec.projection == routing.grid.crs_wkt
+    assert adapted.grid.spec.rows == routing.shape[0]
+    assert adapted.grid.spec.cols == routing.shape[1]
+    assert routing.grid.pixel_size_x_m != routing.grid.pixel_size_y_m
+    assert adapted.grid.spec.transform[0] == routing.grid.pixel_size_x_m
+    assert adapted.grid.spec.transform[4] == -routing.grid.pixel_size_y_m
+    for layer in adapted.grid.layers.values():
+        assert len(layer.values) == routing.shape[0]
+        assert all(len(row) == routing.shape[1] for row in layer.values)
+    assert np.array_equal(np.asarray(adapted.terrain_model.grid.valid_mask), routing.valid)
+    for row in range(routing.shape[0]):
+        for col in range(routing.shape[1]):
+            cell = adapted.terrain_model.at((row, col))
+            assert cell.elevation_m == pytest.approx(float(routing.elevation_m[row, col])) if routing.valid[row, col] else cell.elevation_m is None
+            assert cell.slope_deg == pytest.approx(float(routing.slope_deg[row, col])) if np.isfinite(routing.slope_deg[row, col]) else cell.slope_deg is None
+            assert cell.roughness_m == pytest.approx(float(routing.roughness_m[row, col])) if np.isfinite(routing.roughness_m[row, col]) else cell.roughness_m is None
+    assert routing.analysis_id == result.id == aid
+    assert routing.analysis_version == result.analysis_version == ANALYSIS_VERSION
 
 
 def test_cell_lookup_round_trips_for_every_cell(tmp_path) -> None:
