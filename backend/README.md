@@ -11,7 +11,7 @@ pip install -e ".[dev]"
 uvicorn app.main:app --reload                          # http://localhost:8000/docs
 ```
 
-Python 3.11 to 3.13 is the declared range; the suite also passes on 3.14. No API key is needed for any source.
+Python 3.11 or 3.12 is the declared range (`requires-python = ">=3.11,<3.13"`); create the venv with one of them (`py -3.12 -m venv .venv` on Windows). No API key is needed for any source.
 
 ## Configuration
 

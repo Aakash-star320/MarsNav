@@ -7,6 +7,7 @@ yet; the result says so explicitly instead of producing targets.
 """
 from __future__ import annotations
 
+from concurrent.futures import Future, ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
@@ -51,14 +52,25 @@ class AnalyzerDeps:
     science: ScienceDeps | None = None                           # CRISM access; without it no science stage runs
 
 
+def _drop(pool: ThreadPoolExecutor | None) -> None:
+    if pool is not None:
+        pool.shutdown(wait=False, cancel_futures=True)
+
+
 def run_region_analysis(
     analysis_id: UUID, request: CreateAnalysisRequest, deps: AnalyzerDeps, progress: Progress, now: datetime,
 ) -> RegionalAnalysisResult:
     warnings: list[str] = []
+    science_pool: ThreadPoolExecutor | None = None
+    science_future: Future[ScienceOutcome] | None = None
     try:
         progress(JobStage.discovery, 10, "Planning the analysis region and discovering terrain products")
         bounds = pad_bounds(request.roi.bounds, request.roi.analysis_margin_m)
         plan = plan_analyze_region(bounds, max_area_km2=deps.max_area_km2)
+        if deps.science is not None and wants_hydrated_minerals(request.objective):
+            # CRISM discovery and reads only need the planned bounds, so they run while the elevation is read.
+            science_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="science")
+            science_future = science_pool.submit(run_hydrated_minerals, plan.bounds, deps.science)
         candidates = deps.catalog() if deps.catalog else [mola.dataset_record(deps.mola_layout)]
 
         progress(JobStage.selection, 25, "Selecting products for the region")
@@ -82,16 +94,25 @@ def run_region_analysis(
         progress(JobStage.terrain, 80, "Deriving slope and roughness and publishing the terrain bundle")
         bundle = build_terrain_bundle(window, dataset, analysis_id, deps.out_dir, generated_at=now)
     except RegionPlanningError as exc:
+        _drop(science_pool)
         raise AnalysisError(exc.code, str(exc)) from exc
     except GeometryError as exc:
+        _drop(science_pool)
         raise AnalysisError(exc.code, str(exc)) from exc
     except mola.MolaError as exc:
+        _drop(science_pool)
         raise AnalysisError(f"elevation_{exc.code}", str(exc)) from exc
+    except BaseException:
+        _drop(science_pool)                      # cancellation or an unexpected error: do not wait for CRISM
+        raise
 
     science = ScienceOutcome(attempted=False)
-    if deps.science is not None and wants_hydrated_minerals(request.objective):
-        progress(JobStage.science, 90, "Searching CRISM observations and screening summary parameters")
-        science = run_hydrated_minerals(plan.bounds, deps.science)
+    if science_future is not None:
+        try:
+            progress(JobStage.science, 90, "Finishing the CRISM search and screening summary parameters")
+            science = science_future.result()
+        finally:
+            _drop(science_pool)
         if science.evidence is not None:
             ev = science.evidence
             save_science_layer(deps.out_dir / str(analysis_id), ScienceLayer(values=ev.values, bounds=ev.bounds, product_id=ev.product_id, pixel_m=ev.pixel_m))

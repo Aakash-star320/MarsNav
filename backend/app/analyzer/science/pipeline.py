@@ -6,6 +6,7 @@ becomes a warning and an empty target list. Missing observations are never repor
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Callable
 from uuid import NAMESPACE_URL, uuid5
@@ -114,6 +115,41 @@ def _target(c: Candidate, layout: SummaryCubeLayout, window: tuple[int, int, int
     )
 
 
+def _read_observation(rec: DatasetRecord, bounds: BoundingBox, deps: ScienceDeps):
+    """Header, pixel window and the three summary bands (read in parallel); None if the area misses the cube."""
+    layout = parse_layout(deps.fetch_text(_header_url(rec)))
+    window = pixel_window(layout, bounds)
+    if window is None:
+        return None
+    fetch = deps.range_fetcher_for(str(rec.download_url))
+    with ThreadPoolExecutor(max_workers=len(REQUIRED_BANDS)) as ex:
+        futures = {b: ex.submit(read_band_window, layout, b, window, fetch, deps.max_bytes) for b in REQUIRED_BANDS}
+        bands = {b: f.result().values for b, f in futures.items()}
+    return layout, window, bands
+
+
+def _screen(out: ScienceOutcome, rec: DatasetRecord, layout: SummaryCubeLayout, window: tuple[int, int, int, int],
+            bands: dict[str, np.ndarray], bounds: BoundingBox, deps: ScienceDeps, used: list[str], valid_fractions: list[float]) -> None:
+    valid = np.logical_and.reduce([np.isfinite(bands[b]) for b in REQUIRED_BANDS])
+    if not valid.any():
+        out.warnings.append(f"CRISM observation {rec.product_id} has no valid pixels in this area.")
+        return
+    used.append(rec.product_id)
+    n_valid = int(valid.sum())
+    if out.evidence is None or n_valid > out.evidence.valid_pixels:
+        ev, _ = evidence_map(bands)
+        nw, se = layout.rowcol_to_lonlat(window[0], window[2]), layout.rowcol_to_lonlat(window[1], window[3])
+        out.evidence = EvidenceRaster(values=ev.astype(np.float32), bounds=BoundingBox(west_deg_east=nw.longitude_deg_east, south_deg=se.latitude_deg, east_deg_east=se.longitude_deg_east, north_deg=nw.latitude_deg), product_id=rec.product_id, pixel_m=layout.pixel_m, valid_pixels=n_valid)
+    valid_fractions.append(float(valid.mean()))
+    out.datasets.append(rec)
+    for cand in detect(bands, deps.config):
+        t = _target(cand, layout, window, rec, deps.config)
+        inside = bounds.west_deg_east <= t.location.longitude_deg_east <= bounds.east_deg_east and bounds.south_deg <= t.location.latitude_deg <= bounds.north_deg
+        near = any(haversine_m(t.location, o.location) < DEDUPE_METRES for o in out.targets)
+        if inside and not near:
+            out.targets.append(t)
+
+
 def run_hydrated_minerals(bounds: BoundingBox, deps: ScienceDeps) -> ScienceOutcome:
     out = ScienceOutcome()
     try:
@@ -126,40 +162,28 @@ def run_hydrated_minerals(bounds: BoundingBox, deps: ScienceDeps) -> ScienceOutc
         return out
     used: list[str] = []
     valid_fractions: list[float] = []
-    for rec in records:
-        if len(used) >= deps.max_observations:
-            break
-        try:
-            layout = parse_layout(deps.fetch_text(_header_url(rec)))
-            window = pixel_window(layout, bounds)
-            if window is None:
+    # The first observations are read concurrently (network-bound); results are consumed in rank order, so
+    # the outcome is the same as a sequential read. Later records are read only if earlier ones fail.
+    pool = ThreadPoolExecutor(max_workers=max(1, deps.max_observations), thread_name_prefix="crism")
+    ahead = {i: pool.submit(_read_observation, rec, bounds, deps) for i, rec in enumerate(records[: deps.max_observations])}
+    try:
+        for i, rec in enumerate(records):
+            if len(used) >= deps.max_observations:
+                break
+            try:
+                read = ahead[i].result() if i in ahead else _read_observation(rec, bounds, deps)
+                if read is None:
+                    continue
+                layout, window, bands = read
+            except (CrismError, HttpFetchError, OdeError, ValueError) as exc:
+                out.warnings.append(f"CRISM observation {rec.product_id} could not be read ({getattr(exc, 'code', type(exc).__name__)}: {exc}).")
                 continue
-            fetch = deps.range_fetcher_for(str(rec.download_url))
-            bands = {b: read_band_window(layout, b, window, fetch, deps.max_bytes).values for b in REQUIRED_BANDS}
-        except (CrismError, HttpFetchError, OdeError, ValueError) as exc:
-            out.warnings.append(f"CRISM observation {rec.product_id} could not be read ({getattr(exc, 'code', type(exc).__name__)}: {exc}).")
-            continue
-        except Exception as exc:  # network layers raise several types; any read failure must not abort the analysis
-            out.warnings.append(f"CRISM observation {rec.product_id} could not be read ({type(exc).__name__}).")
-            continue
-        valid = np.logical_and.reduce([np.isfinite(bands[b]) for b in REQUIRED_BANDS])
-        if not valid.any():
-            out.warnings.append(f"CRISM observation {rec.product_id} has no valid pixels in this area.")
-            continue
-        used.append(rec.product_id)
-        n_valid = int(valid.sum())
-        if out.evidence is None or n_valid > out.evidence.valid_pixels:
-            ev, _ = evidence_map(bands)
-            nw, se = layout.rowcol_to_lonlat(window[0], window[2]), layout.rowcol_to_lonlat(window[1], window[3])
-            out.evidence = EvidenceRaster(values=ev.astype(np.float32), bounds=BoundingBox(west_deg_east=nw.longitude_deg_east, south_deg=se.latitude_deg, east_deg_east=se.longitude_deg_east, north_deg=nw.latitude_deg), product_id=rec.product_id, pixel_m=layout.pixel_m, valid_pixels=n_valid)
-        valid_fractions.append(float(valid.mean()))
-        out.datasets.append(rec)
-        for cand in detect(bands, deps.config):
-            t = _target(cand, layout, window, rec, deps.config)
-            inside = bounds.west_deg_east <= t.location.longitude_deg_east <= bounds.east_deg_east and bounds.south_deg <= t.location.latitude_deg <= bounds.north_deg
-            near = any(haversine_m(t.location, o.location) < DEDUPE_METRES for o in out.targets)
-            if inside and not near:
-                out.targets.append(t)
+            except Exception as exc:  # network layers raise several types; any read failure must not abort the analysis
+                out.warnings.append(f"CRISM observation {rec.product_id} could not be read ({type(exc).__name__}).")
+                continue
+            _screen(out, rec, layout, window, bands, bounds, deps, used, valid_fractions)
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     if not used:
         out.warnings.append("No CRISM observation could be used for this area; no spectral candidates were produced.")
         return out
