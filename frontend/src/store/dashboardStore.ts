@@ -143,7 +143,7 @@ export const useStore = create<Store>((set, get) => {
       try {                                   // the 3D view reads the same real terrain
         const ms = useMissionStore.getState();
         ms.setLayers(pkg.layers);
-        if (el) ms.setLayerVisibility(el.layer.id, true);
+        if (el) { ms.setLayerVisibility(el.layer.id, true); ms.setLayerOpacity(el.layer.id, 0.4); }   // light tint over the imagery in 3D
         // Low-relief areas look flat at true scale, so exaggerate the height to show the shape (the 3D view says how much).
         const relief = Math.max(1, (stats.elevation_max_m ?? 0) - (stats.elevation_min_m ?? 0)), width = Math.max(region.w, region.h) * KM_PER_PX * 1000;
         useMissionStore.setState({ dem: pkg.dem ?? undefined, focus: Date.now(), exaggeration: Math.max(1, Math.min(10, Math.round((0.12 * width) / relief))) });

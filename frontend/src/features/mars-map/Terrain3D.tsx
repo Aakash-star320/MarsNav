@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import * as T from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { useMissionStore as store } from "../../store/missionStore";
+import { trekImageFor } from "./BaseImagery";
 import { gridXY, heightAt, project, unproject, validateDem } from "./geometry";
 import type { LonLat, BoundingBox } from "../../types/contracts";
 function dispose(root: T.Object3D) {
@@ -28,7 +29,7 @@ const demBase = (d: { values: (number | null)[] }) => {
 function homeView(d: Parameters<typeof gridXY>[0], exaggeration: number) {
   const w = (d.width - 1) * Math.hypot(d.affine[1], d.affine[4]);
   const h = (d.height - 1) * Math.hypot(d.affine[2], d.affine[5]);
-  const e = Math.max(w, h, 400) * 1.9;
+  const e = Math.max(w, h, 400) * 2.4;
   const [cx, cy] = gridXY(d, (d.width - 1) / 2, (d.height - 1) / 2);
   return { e, pos: [cx + 0.55 * e, 0.5 * e + 50 * exaggeration, -cy + 0.62 * e] as const, target: [cx, 50 * exaggeration, -cy] as const };
 }
@@ -82,9 +83,9 @@ export function Terrain3D() {
     controls.minDistance = Math.min(180, home.e / 10);
     controls.maxDistance = Math.max(10000, home.e * 4);
     controls.maxPolarAngle = Math.PI * 0.49;
-    scene.add(new T.HemisphereLight("#e6e9ff", "#513524", 2.2));
-    const sun = new T.DirectionalLight("#fff0d9", 2.4);
-    sun.position.set(-2000, 3000, 1000);
+    scene.add(new T.HemisphereLight("#dfe6ff", "#3b2a20", 1.1));
+    const sun = new T.DirectionalLight("#fff0d9", 2.6);
+    sun.position.set(-home.e * 1.3, home.e * 0.55, home.e * 0.6);   // low sun: ridges and crater rims throw shading
     scene.add(sun);
     const positions: number[] = [],
       uvs: number[] = [],
@@ -127,8 +128,41 @@ export function Terrain3D() {
       }),
     );
     scene.add(terrain);
-    const grid = new T.GridHelper(3200, 16, "#36454b", "#233139");
-    grid.position.y = -90;
+    // Real Viking imagery draped over the surface (falls back to the plain colours when offline).
+    let alive = true;
+    void trekImageFor(d.bounds).then((canvas) => {
+      if (!alive || !canvas) return;
+      const tex = new T.CanvasTexture(canvas);
+      tex.colorSpace = T.SRGBColorSpace;
+      tex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      const mat = terrain.material as T.MeshStandardMaterial;
+      mat.map = tex;
+      mat.vertexColors = false;
+      mat.color.set("#ffffff");
+      mat.needsUpdate = true;
+    });
+    // Side walls and a base, so it reads as a solid block of Mars and not a floating sheet.
+    let top = 0;
+    for (let i = 1; i < positions.length; i += 3) top = Math.max(top, positions[i]);
+    const depth = Math.max(top * 0.8, home.e * 0.07);
+    const rim: number[] = [];
+    for (let c = 0; c < d.width; c++) rim.push(c);
+    for (let r = 1; r < d.height; r++) rim.push(r * d.width + d.width - 1);
+    for (let c = d.width - 2; c >= 0; c--) rim.push((d.height - 1) * d.width + c);
+    for (let r = d.height - 2; r > 0; r--) rim.push(r * d.width);
+    const wallPos: number[] = [], wallIdx: number[] = [];
+    rim.forEach((v, i) => {
+      wallPos.push(positions[v * 3], positions[v * 3 + 1], positions[v * 3 + 2], positions[v * 3], -depth, positions[v * 3 + 2]);
+      const a = i * 2, b = ((i + 1) % rim.length) * 2;
+      wallIdx.push(a, b, a + 1, b, b + 1, a + 1);
+    });
+    const wallGeo = new T.BufferGeometry();
+    wallGeo.setAttribute("position", new T.Float32BufferAttribute(wallPos, 3));
+    wallGeo.setIndex(wallIdx);
+    wallGeo.computeVertexNormals();
+    scene.add(new T.Mesh(wallGeo, new T.MeshStandardMaterial({ color: "#4a3427", roughness: 1, side: T.DoubleSide })));
+    const grid = new T.GridHelper(home.e * 3, 24, "#36454b", "#1f2b32");
+    grid.position.y = -depth - 2;
     scene.add(grid);
     const dynamic = new T.Group(),
       rasters = new T.Group();
@@ -198,6 +232,7 @@ export function Terrain3D() {
     };
     render();
     return () => {
+      alive = false;
       cancelAnimationFrame(frame);
       observer.disconnect();
       renderer.domElement.removeEventListener("pointerdown", down);

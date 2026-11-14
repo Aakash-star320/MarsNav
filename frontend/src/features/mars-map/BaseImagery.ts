@@ -28,6 +28,7 @@ function fetchTile(url: string): Promise<HTMLImageElement | null> {
   if (!p) {
     p = new Promise<HTMLImageElement | null>((resolve) => {
       const img = new Image();
+      img.crossOrigin = "anonymous";   // NASA Trek allows it; needed so the tiles can also texture the 3D terrain
       img.onload = () => { loaded.set(url, img); inflight.delete(url); resolve(img); };
       img.onerror = () => { inflight.delete(url); resolve(null); };   // not cached: a later view retries
       img.src = url;
@@ -96,4 +97,35 @@ export function marsTrekLayer(opacity = 1): L.GridLayer {
     updateInterval: 60,
     keepBuffer: 3,
   });
+}
+
+/**
+ * One canvas of Trek imagery covering a geographic box (used to texture the 3D terrain). Resolves with whatever
+ * could be loaded; null when nothing at all could (offline), so the caller keeps its plain colours.
+ */
+export async function trekImageFor(
+  b: { west_deg_east: number; south_deg: number; east_deg_east: number; north_deg: number },
+  maxPx = 1536,
+): Promise<HTMLCanvasElement | null> {
+  const lon = b.east_deg_east - b.west_deg_east, lat = b.north_deg - b.south_deg;
+  if (!(lon > 0) || !(lat > 0)) return null;
+  const scale = maxPx / Math.max(lon, lat);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(2, Math.round(lon * scale));
+  canvas.height = Math.max(2, Math.round(lat * scale));
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  ctx.imageSmoothingEnabled = true;
+  const level = trekLevelFor(scale);
+  const tiles = trekTilesFor(level, b.west_deg_east, b.south_deg, b.east_deg_east, b.north_deg);
+  let drawn = 0;
+  await Promise.all(tiles.map(async (t) => {
+    const img = await fetchTile(trekUrl(t));
+    if (!img) return;
+    const x0 = ((t.west - b.west_deg_east) / lon) * canvas.width, x1 = ((t.east - b.west_deg_east) / lon) * canvas.width;
+    const y0 = ((b.north_deg - t.north) / lat) * canvas.height, y1 = ((b.north_deg - t.south) / lat) * canvas.height;
+    ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
+    drawn++;
+  }));
+  return drawn ? canvas : null;
 }
