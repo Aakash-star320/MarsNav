@@ -37,3 +37,13 @@ export const toRouteResult = (r: Route, id: string = r.k): RouteResult => ({
 });
 
 export type { Pt };
+
+/** A real science target as the dashboard shows it: pixel position, 0-100 score, evidence statements. */
+export const toDashboardTarget = (t: ScienceTarget, index: number): Target => {
+  const p = lonLatToPx(t.location);
+  return {
+    id: t.id, label: `C-${String(index + 1).padStart(2, '0')}`, cat: t.title, x: Math.round(p.x), y: Math.round(p.y),
+    score: Math.round(t.relevance_score * 100), conf: t.confidence[0].toUpperCase() + t.confidence.slice(1),
+    evidence: t.evidence.map((e) => e.statement), rank: t.rank_explanation ?? undefined,
+  };
+};

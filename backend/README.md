@@ -58,7 +58,7 @@ curl -X POST localhost:8000/api/v1/analyses -H "Content-Type: application/json" 
 curl localhost:8000/api/v1/analyses/{id}                 # stage and progress
 curl localhost:8000/api/v1/analyses/{id}/result          # RegionalAnalysisResult (409 until completed)
 curl localhost:8000/api/v1/analyses/{id}/map             # layers, display DEM, statistics, targets
-curl localhost:8000/api/v1/analyses/{id}/layers/elevation.png      # also slope, roughness, science
+curl localhost:8000/api/v1/analyses/{id}/layers/elevation.png      # also slope, roughness, science, hazard (?slope_limit_deg=)
 curl "localhost:8000/api/v1/analyses/{id}/terrain.npz?analysis_version=analysis/1" -o terrain.npz   # for routing
 curl -X POST localhost:8000/api/v1/analyses/{id}/cancel
 ```

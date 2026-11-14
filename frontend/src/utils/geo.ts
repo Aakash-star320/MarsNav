@@ -10,16 +10,23 @@ export const elevation = (x: number, y: number) =>
 export const slopeAt = (x: number, y: number) =>
   Math.atan(Math.hypot((elevation(x + 1, y) - elevation(x - 1, y)) / 40, (elevation(x, y + 1) - elevation(x, y - 1)) / 40)) * 57.3;
 
-/** Demo canvas projection: planetocentric latitude, east-positive longitude (degrees). */
-export const DEMO_ORIGIN = { lonE: 77.4, lat: 18.4 };
-export const DEG_PER_PX = 0.01;
-export const pxToLonLat = (p: Pt) => ({ latitude_deg: DEMO_ORIGIN.lat - p.y * DEG_PER_PX, longitude_deg_east: DEMO_ORIGIN.lonE + p.x * DEG_PER_PX });
-export const lonLatToPx = (c: { latitude_deg: number; longitude_deg_east: number }): Pt => ({ x: (c.longitude_deg_east - DEMO_ORIGIN.lonE) / DEG_PER_PX, y: (DEMO_ORIGIN.lat - c.latitude_deg) / DEG_PER_PX });
+/**
+ * Canvas projection. One canvas pixel is KM_PER_PX (20 m) square on the Mars sphere used by the source
+ * data (radius 3,396,190 m), so 800 x 500 px is a real 16 x 10 km area. The north-west corner is placed over
+ * Jezero crater. Latitude is planetocentric degrees and longitude is east-positive; longitude pixels are
+ * wider in degrees by 1 / cos(latitude) so that pixels stay square in metres.
+ */
+export const DEMO_ORIGIN = { lonE: 77.4, lat: 18.5 };
+const SPHERE_RADIUS_M = 3_396_190;
+export const DEG_LAT_PER_PX = (KM_PER_PX * 1000 / SPHERE_RADIUS_M) * (180 / Math.PI);
+export const DEG_LON_PER_PX = DEG_LAT_PER_PX / Math.cos((DEMO_ORIGIN.lat * Math.PI) / 180);
+export const pxToLonLat = (p: Pt) => ({ latitude_deg: DEMO_ORIGIN.lat - p.y * DEG_LAT_PER_PX, longitude_deg_east: DEMO_ORIGIN.lonE + p.x * DEG_LON_PER_PX });
+export const lonLatToPx = (c: { latitude_deg: number; longitude_deg_east: number }): Pt => ({ x: (c.longitude_deg_east - DEMO_ORIGIN.lonE) / DEG_LON_PER_PX, y: (DEMO_ORIGIN.lat - c.latitude_deg) / DEG_LAT_PER_PX });
 
 export const fmtCoord = (p?: Pt | null) => {
   if (!p) return 'not set';
   const c = pxToLonLat(p);
-  return `${c.longitude_deg_east.toFixed(2)}°E, ${c.latitude_deg.toFixed(2)}°N`;
+  return `${c.longitude_deg_east.toFixed(4)}°E, ${c.latitude_deg.toFixed(4)}°N`;
 };
 export const fmtDuration = (m: number) => `${Math.floor(m / 60)} h ${Math.round(m % 60)} min`;
 

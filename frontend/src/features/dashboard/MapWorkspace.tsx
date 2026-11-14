@@ -8,6 +8,10 @@ const LEGEND: Record<string, string> = {
   opt: 'Real imagery: NASA Mars Trek (Viking, 232 m)', elev: 'Simulated elevation: blue low → white high', slope: 'Simulated slope: green gentle → red steep',
   therm: 'Thermal (orange)', cov: 'Coverage: teal detailed · amber moderate · grey coarse',
 };
+const REAL_LEGEND: Record<string, string> = {
+  elev: 'Elevation (MOLA): blue low → orange high', slope: 'Slope: green gentle → red steep',
+  spec: 'Magenta: strong hydrated-mineral evidence (heuristic, CRISM)',
+};
 
 function Banner() {
   const s = useStore();
@@ -26,11 +30,11 @@ function Banner() {
 }
 
 function Legend() {
-  const { layers, slope } = useStore();
-  const items = LAYERS.filter((l) => layers[l.id].on).map((l) => (l.id === 'haz' ? `Red cells: slope > ${slope}°` : LEGEND[l.id])).filter(Boolean);
+  const { layers, slope, real } = useStore();
+  const items = LAYERS.filter((l) => layers[l.id].on).map((l) => (l.id === 'haz' ? `Red cells: slope > ${slope}°` : (real && REAL_LEGEND[l.id]) || LEGEND[l.id])).filter(Boolean);
   return (
     <div className="ov" id="lg"><b>Legend</b> {items.join(' · ') || 'No layers on'}<br />
-      <span style={{ color: '#f0b254' }}>Routes, targets and terrain layers are simulated.</span><br />
+      <span style={{ color: '#f0b254' }}>{real ? 'Elevation, slope, steep-terrain and spectral layers are real analysis (463 m terrain). Routes and missions are simulated.' : 'Routes, targets and terrain layers are simulated.'}</span><br />
       <span style={{ color: '#b4c1d8' }}>Solid = outbound · dashed = return · ◆ target · dotted = previous</span>
     </div>
   );
@@ -41,14 +45,14 @@ function JobOverlay() {
   if (!job) return null;
   return (
     <div className="ov" id="jb">
-      <b>{job.title}…</b> <span className="p w">simulated job</span>
+      <b>{job.title}…</b> <span className={job.real ? 'p g' : 'p w'}>{job.real ? 'real analysis' : 'simulated job'}</span>
       {job.stages.map((x, i) => (
         <div key={x} style={{ fontSize: 13, color: i < job.i ? '#2dd4d0' : i === job.i ? '#fff' : '#b4c1d8' }}>
-          {i < job.i ? '✓' : i === job.i ? '●' : '○'} {x}{x === 'Download' && cache ? ' (cache reused)' : ''}
+          {i < job.i ? '✓' : i === job.i ? '●' : '○'} {x}{!job.real && x === 'Download' && cache ? ' (cache reused)' : ''}
         </div>
       ))}
       <div className="bar"><i style={{ width: `${(job.i / job.stages.length) * 100}%`, background: '#2dd4d0' }} /></div>
-      <div className="nt">Next: {job.stages[job.i + 1] ?? 'finish'}. Replace with real backend job status.</div>
+      <div className="nt">Next: {job.stages[job.i + 1] ?? 'finish'}.{job.real ? ' Progress follows the backend job.' : ' Simulated progress.'}</div>
       <button style={{ marginTop: 6 }} onClick={cancelJob}>Cancel</button>
     </div>
   );

@@ -11,7 +11,8 @@ MarsNav is a Martian Marswalk planner for NASA Space Apps 2026. Given a region o
 | Terrain bundle for routing and the map | Specified in [`docs/TERRAIN_CONTRACT.md`](docs/TERRAIN_CONTRACT.md) and produced by the analyzer |
 | Hydrated-mineral candidates (CRISM) | Heuristic candidates with evidence and a map overlay; rule and limits in [`docs/SCIENCE_CRISM.md`](docs/SCIENCE_CRISM.md) |
 | Routing terrain access, job cancellation, assistant tools | Working; see [`docs/TERRAIN_CONTRACT.md`](docs/TERRAIN_CONTRACT.md) and [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) |
-| Dashboard and map UI | Working on mock data |
+| Dashboard: Analyze Region | Uses the real analysis (statistics, layers, CRISM candidates); routes and missions remain simulated |
+| Map view (`?view=map`) | Real imagery and analysis panel |
 | Routing, caching and downloads, the mission store | See the member task documents; not covered by the analyzer |
 
 [`backend/README.md`](backend/README.md) covers installation, configuration, equations and example requests for the analyzer; [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) lists exactly what is implemented, partial and unsupported in the analyzer, with the verified data sources. Coarse global elevation supports broad planning only; it cannot show rocks or small obstacles.

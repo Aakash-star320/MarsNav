@@ -2,7 +2,8 @@ import { memo, useMemo, useRef, useState } from 'react';
 import type { PointerEvent } from 'react';
 import { useStore } from '../../store/dashboardStore';
 import type { Pt } from '../../types/ui';
-import { DEG_PER_PX, elevation, fmtCoord, lonLatToPx, pxToLonLat, slopeAt } from '../../utils/geo';
+import type { BoundingBox } from '../../types/contracts';
+import { elevation, fmtCoord, lonLatToPx, pxToLonLat, slopeAt } from '../../utils/geo';
 import { trekTilesFor, trekUrl } from '../../utils/trek';
 import { combined, segsOf } from '../../utils/derive';
 
@@ -30,17 +31,25 @@ const GridLayer = memo(function GridLayer({ id, op, slope }: { id: 'elev' | 'slo
 const RealImagery = memo(function RealImagery({ op }: { op: number }) {
   const tiles = useMemo(() => {
     const nw = pxToLonLat({ x: 0, y: 0 }), se = pxToLonLat({ x: 800, y: 500 });
-    return trekTilesFor(6, nw.longitude_deg_east, se.latitude_deg, se.longitude_deg_east, nw.latitude_deg).map((t) => {
-      const p = lonLatToPx({ latitude_deg: t.north, longitude_deg_east: t.west });
-      return { key: `${t.row}-${t.col}`, href: trekUrl(t), x: p.x, y: p.y, w: (t.east - t.west) / DEG_PER_PX + 0.6, h: (t.north - t.south) / DEG_PER_PX + 0.6 };
+    return trekTilesFor(7, nw.longitude_deg_east, se.latitude_deg, se.longitude_deg_east, nw.latitude_deg).map((t) => {
+      const a = lonLatToPx({ latitude_deg: t.north, longitude_deg_east: t.west });
+      const b = lonLatToPx({ latitude_deg: t.south, longitude_deg_east: t.east });
+      return { key: `${t.row}-${t.col}`, href: trekUrl(t), x: a.x, y: a.y, w: b.x - a.x + 0.6, h: b.y - a.y + 0.6 };
     });
   }, []);
   return (
     <g opacity={op}>
       {tiles.map((t) => <image key={t.key} href={t.href} x={t.x} y={t.y} width={t.w} height={t.h} preserveAspectRatio="none" />)}
-      <rect width={800} height={500} fill="#0b1220" opacity={0.28} />
+      <rect width={800} height={500} fill="#0b1220" opacity={0.12} />
     </g>
   );
+});
+
+/** A real analysis image (PNG from the backend) placed on the canvas by its geographic bounds. */
+const RealRaster = memo(function RealRaster({ href, bounds, op }: { href: string; bounds: BoundingBox; op: number }) {
+  const a = lonLatToPx({ latitude_deg: bounds.north_deg, longitude_deg_east: bounds.west_deg_east });
+  const b = lonLatToPx({ latitude_deg: bounds.south_deg, longitude_deg_east: bounds.east_deg_east });
+  return <image href={href} x={a.x} y={a.y} width={b.x - a.x} height={b.y - a.y} opacity={op} preserveAspectRatio="none" style={{ imageRendering: 'pixelated' }} />;
 });
 
 function Label({ p, text, fill = '#fff' }: { p: Pt; text: string; fill?: string }) {
@@ -82,9 +91,10 @@ export default function MapCanvas() {
         }}>
         <rect width={800} height={500} fill="#0d1420" />
         {L.opt.on && <RealImagery op={L.opt.op} />}
-        {L.elev.on && <GridLayer id="elev" op={L.elev.op} slope={s.slope} />}
-        {L.slope.on && <GridLayer id="slope" op={L.slope.op} slope={s.slope} />}
-        {L.haz.on && <GridLayer id="haz" op={L.haz.op} slope={s.slope} />}
+        {L.elev.on && (s.real ? <RealRaster href={s.real.layers.elevation.href} bounds={s.real.layers.elevation.bounds} op={L.elev.op} /> : <GridLayer id="elev" op={L.elev.op} slope={s.slope} />)}
+        {L.slope.on && (s.real ? <RealRaster href={s.real.layers.slope.href} bounds={s.real.layers.slope.bounds} op={L.slope.op} /> : <GridLayer id="slope" op={L.slope.op} slope={s.slope} />)}
+        {L.haz.on && (s.real ? <RealRaster href={`${s.real.hazardBase}?slope_limit_deg=${s.slope}`} bounds={s.real.layers.elevation.bounds} op={L.haz.op} /> : <GridLayer id="haz" op={L.haz.op} slope={s.slope} />)}
+        {L.spec.on && s.real?.layers.science && <RealRaster href={s.real.layers.science.href} bounds={s.real.layers.science.bounds} op={L.spec.op} />}
         {L.therm.on && <ellipse cx={260} cy={190} rx={150} ry={90} fill="#e0603a" opacity={L.therm.op * 0.7} />}
         {L.cov.on && (
           <g opacity={L.cov.op}>

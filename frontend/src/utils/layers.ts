@@ -1,4 +1,4 @@
-import type { LayerState } from '../types/ui';
+import type { LayerState, RealAnalysis } from '../types/ui';
 
 export interface LayerMeta { id: string; n: string; s: string; r?: string; na?: boolean }
 
@@ -17,3 +17,15 @@ export const defaultLayers = (): Record<string, LayerState> => ({
   opt: { on: true, op: 0.9 }, elev: { on: false, op: 0.6 }, slope: { on: false, op: 0.6 },
   haz: { on: false, op: 0.7 }, therm: { on: false, op: 0.5 }, spec: { on: false, op: 0.5 }, cov: { on: false, op: 0.45 },
 });
+
+/** Layer labels once a real analysis exists: the layers it supplies say so, the rest stay simulated. */
+export function realLabel(l: LayerMeta, real: RealAnalysis | null): LayerMeta {
+  if (!real) return l;
+  switch (l.id) {
+    case 'elev': return { ...l, n: 'Elevation (real)', s: 'USGS MOLA 463 m global DEM', r: '463 m cells' };
+    case 'slope': return { ...l, n: 'Slope (real)', s: 'Derived from the MOLA elevation', r: '463 m cells' };
+    case 'haz': return { ...l, n: 'Steeper than your limit (real)', s: 'Cells above the maximum slope setting', r: '463 m cells' };
+    case 'spec': return real.layers.science ? { ...l, n: 'Hydrated-mineral evidence (real)', s: 'CRISM summary parameters, heuristic screen', r: '18-36 m pixels', na: false } : l;
+    default: return l;
+  }
+}
