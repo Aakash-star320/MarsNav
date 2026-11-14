@@ -134,8 +134,12 @@ export default function SetupPanel() {
           <>
             <LocRow k="start" label="Start" /><LocRow k="dest" label="Destination" /><LocRow k="base" label="Base" />
             <button className="inline" title="Sets Start 18.3700 N, 77.4350 E and Destination 18.4100 N, 77.4600 E in Jezero crater, then plans the route. Analyse that area first for routes on real terrain." onClick={() => {
-              s.setField('start', { ...lonLatToPx({ latitude_deg: 18.37, longitude_deg_east: 77.435 }) });
-              s.setField('dest', { ...lonLatToPx({ latitude_deg: 18.41, longitude_deg_east: 77.46 }) });
+              const a = lonLatToPx({ latitude_deg: 18.37, longitude_deg_east: 77.435 }), b = lonLatToPx({ latitude_deg: 18.41, longitude_deg_east: 77.46 });
+              s.setField('start', { ...a });
+              s.setField('dest', { ...b });
+              s.setField('focusZoom', 13.5);
+              s.setField('focus', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });   // zoom the map onto the route
+              setTimeout(() => s.setField('focus', null), 1200);
               s.setField('ret', false);
               s.generate();
             }}>Try demo route (Jezero)</button>

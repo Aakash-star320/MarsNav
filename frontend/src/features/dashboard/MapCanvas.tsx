@@ -6,7 +6,7 @@ import { useStore } from '../../store/dashboardStore';
 import type { Pt } from '../../types/ui';
 import type { BoundingBox } from '../../types/contracts';
 import { elevation, fmtCoord, lonLatToPx, pxToLonLat, slopeAt } from '../../utils/geo';
-import { marsTrekLayer } from '../mars-map/BaseImagery';
+import { marsCtxLayer, marsTrekLayer } from '../mars-map/BaseImagery';
 import { combined, segsOf } from '../../utils/derive';
 import { setViewport } from '../../utils/viewport';
 
@@ -108,6 +108,7 @@ export default function MapCanvas() {
   const hostRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const imageryRef = useRef<L.GridLayer | null>(null);
+  const ctxRef = useRef<L.GridLayer | null>(null);
   const coRef = useRef<HTMLDivElement>(null);
   const [k, setK] = useState<View>(INITIAL);
   const [rubber, setRubber] = useState<{ a: Pt; b: Pt } | null>(null);
@@ -176,16 +177,18 @@ export default function MapCanvas() {
       if (coRef.current) coRef.current.textContent = fmtCoord(fromLatLng(e.latlng));
     });
     m.on('mouseout', () => { if (coRef.current) coRef.current.textContent = 'Hover the map for coordinates'; });
-    return () => { if (raf) cancelAnimationFrame(raf); ro.disconnect(); m.off(); m.remove(); mapRef.current = null; imageryRef.current = null; };
+    return () => { if (raf) cancelAnimationFrame(raf); ro.disconnect(); m.off(); m.remove(); mapRef.current = null; imageryRef.current = null; ctxRef.current = null; };
   }, []);
 
   // Real imagery layer follows the "Mars surface imagery" toggle and opacity.
   useEffect(() => {
     const m = mapRef.current;
     if (!m) return;
-    if (!L_.opt.on) { imageryRef.current?.remove(); imageryRef.current = null; return; }
+    if (!L_.opt.on) { imageryRef.current?.remove(); imageryRef.current = null; ctxRef.current?.remove(); ctxRef.current = null; return; }
     if (!imageryRef.current) { imageryRef.current = marsTrekLayer(L_.opt.op).addTo(m); imageryRef.current.setZIndex(1); }
     else imageryRef.current.setOpacity(L_.opt.op);
+    if (!ctxRef.current) { ctxRef.current = marsCtxLayer(L_.opt.op).addTo(m); ctxRef.current.setZIndex(2); }
+    else ctxRef.current.setOpacity(L_.opt.op);
   }, [L_.opt.on, L_.opt.op]);
 
   // Drag to draw a region only while "select region" is active; otherwise dragging pans the map.

@@ -129,3 +129,44 @@ export async function trekImageFor(
   }));
   return drawn ? canvas : null;
 }
+
+// ---- Sharper imagery when zoomed in: Mars CTX mosaic (about 5 m/px) -------------------------------------------------
+// Source (read from the service description): USGS Astrogeology "OnMars/CTX" ArcGIS tile service, the Caltech Murray Lab
+// beta01 CTX mosaic, an uncontrolled preliminary product. Geographic tiles of 512 px, top-left (-180, 90), 2^(n+1) x 2^n tiles
+// at level n, levels 0-17 (level 12 is about 5 m/px). Greyscale context imagery only: not elevation, no science evidence.
+export const CTX_BASE = "https://astro.arcgis.com/arcgis/rest/services/OnMars/CTX/MapServer/tile";
+export const CTX_TILE = 512;
+export const CTX_MAX_LEVEL = 12;
+export const CTX_MIN_MAP_ZOOM = 8;   // below this the Viking mosaic is already as sharp as the screen needs
+export const CTX_ATTRIBUTION = "Close-up imagery: CTX beta mosaic (about 5 m/px), Murray Lab, via USGS Astrogeology";
+const ctxUrl = (t: { level: number; row: number; col: number }) => `${CTX_BASE}/${t.level}/${t.row}/${t.col}`;
+
+/** Leaflet layer that draws CTX tiles over the Viking base once the map is zoomed in far enough to need them. */
+export function marsCtxLayer(opacity = 1): L.GridLayer {
+  const Layer = L.GridLayer.extend({
+    createTile(coords: L.Coords, done: L.DoneCallback) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = TREK_TILE;
+      setTimeout(() => done(undefined, canvas), 0);
+      if (coords.z < CTX_MIN_MAP_ZOOM) return canvas;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return canvas;
+      ctx.imageSmoothingEnabled = true;
+      const span = TREK_TILE / 2 ** coords.z;
+      const lng0 = coords.x * span, lat1 = -coords.y * span;
+      const level = Math.min(CTX_MAX_LEVEL, Math.max(0, Math.ceil(Math.log2((2 ** coords.z * 180) / CTX_TILE))));
+      for (const t of trekTilesFor(level, lng0, lat1 - span, lng0 + span, lat1)) {
+        void fetchTile(ctxUrl(t)).then((img) => {
+          if (!img) return;
+          const x0 = ((t.west - lng0) / span) * TREK_TILE, x1 = ((t.east - lng0) / span) * TREK_TILE;
+          const y0 = ((lat1 - t.north) / span) * TREK_TILE, y1 = ((lat1 - t.south) / span) * TREK_TILE;
+          ctx.drawImage(img, x0, y0, x1 - x0, y1 - y0);
+        });
+      }
+      return canvas;
+    },
+  });
+  return new (Layer as unknown as new (o: L.GridLayerOptions) => L.GridLayer)({
+    tileSize: TREK_TILE, opacity, attribution: CTX_ATTRIBUTION, noWrap: true, updateWhenZooming: false, updateInterval: 120, keepBuffer: 2,
+  });
+}
