@@ -244,7 +244,7 @@ class ProcessingProvenance(BaseModel):
 
 class ProcessedLayer(BaseModel):
     id: UUID
-    kind: Literal["imagery", "elevation", "slope", "roughness", "hazard", "science", "coverage"]
+    kind: Literal["imagery", "elevation", "slope", "roughness", "hazard", "science", "coverage", "validity", "source"]
     uri: str
     bounds: BoundingBox
     resolution_m_per_px: float = Field(gt=0)

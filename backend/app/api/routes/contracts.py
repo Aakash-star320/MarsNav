@@ -2,10 +2,10 @@
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, Query, status
 from app.schemas import (
-    AnalysisJob, AssistantRequest, AssistantResponse, CreateAnalysisRequest,
+    AssistantRequest, AssistantResponse, CreateAnalysisRequest,
     CreateMissionRequest, DatasetCategory, DatasetRecord, DatasetRefreshJob,
     FreshnessState, Mission, NavigationGuideRequest, NavigationInstruction,
-    OfflinePackageRequest, OfflinePackageStatus, RegionalAnalysisResult,
+    OfflinePackageRequest, OfflinePackageStatus,
     ReplanRequest, RouteRequest, RouteResult,
 )
 
@@ -18,12 +18,6 @@ def pending() -> None:
 def create_mission(_: CreateMissionRequest) -> Mission: pending()
 @router.get("/missions/{mission_id}", response_model=Mission)
 def get_mission(mission_id: UUID) -> Mission: pending()
-@router.post("/analyses", response_model=AnalysisJob, status_code=status.HTTP_202_ACCEPTED)
-def create_analysis(_: CreateAnalysisRequest) -> AnalysisJob: pending()
-@router.get("/analyses/{analysis_id}", response_model=AnalysisJob)
-def get_analysis(analysis_id: UUID) -> AnalysisJob: pending()
-@router.get("/analyses/{analysis_id}/result", response_model=RegionalAnalysisResult)
-def analysis_result(analysis_id: UUID) -> RegionalAnalysisResult: pending()
 @router.get("/datasets", response_model=list[DatasetRecord])
 def list_datasets(
     categories: list[DatasetCategory] = Query(default=[]),
