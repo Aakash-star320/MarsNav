@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import type { DataState, Mode, PanelKey, Pick, Pt, Region, Tab, Target } from '../types/ui';
-import { STAGES, discoverTargets, planMission, planRoutes, summarizeRegion } from '../mocks/mock';
+import { STAGES, discoverTargets, planMission, planRoutes } from '../mocks/mock';
 import { combined } from '../utils/derive';
+import { useMissionStore } from './missionStore';
 import { API_BASE, AnalysisError, cancelAnalysis, createAnalysis, fetchMapPackage, waitForAnalysis } from '../api/analysis';
 import { regionToBounds, toDashboardTarget } from '../api/mapping';
 import { KM_PER_PX } from '../utils/geo';
@@ -136,6 +137,10 @@ export const useStore = create<Store>((set, get) => {
         targets: (pkg.science_targets ?? []).map(toDashboardTarget),
         layers: { ...s.layers, elev: { ...s.layers.elev, on: true }, ...(sci ? { spec: { ...s.layers.spec, on: true } } : {}) },
       }));
+      try {                                   // the 3D view reads the same real terrain
+        useMissionStore.getState().setLayers(pkg.layers);
+        useMissionStore.setState({ dem: pkg.dem ?? undefined, focus: Date.now() });
+      } catch (e3d) { console.warn('[analysis] 3D terrain not loaded:', (e3d as Error).message); }
       openPanels(true, false);
     } catch (e) {
       if (!alive()) return;

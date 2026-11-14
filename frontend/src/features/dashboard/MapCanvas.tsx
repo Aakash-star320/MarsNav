@@ -1,19 +1,31 @@
-import { memo, useMemo, useRef, useState } from 'react';
-import type { PointerEvent } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
+import * as L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 import { useStore } from '../../store/dashboardStore';
 import type { Pt } from '../../types/ui';
 import type { BoundingBox } from '../../types/contracts';
 import { elevation, fmtCoord, lonLatToPx, pxToLonLat, slopeAt } from '../../utils/geo';
-import { trekTilesFor, trekUrl } from '../../utils/trek';
+import { marsTrekLayer } from '../mars-map/BaseImagery';
 import { combined, segsOf } from '../../utils/derive';
 
 /**
- * Stand-in for the separate interactive map component. Integration contract:
- * reads shared state (region, markers, routes, obstacles, layers, focus, nav position) from the store
- * and reports clicks/drags through store actions (mapPick, setRegion). Swap this file for Leaflet/Cesium.
+ * The dashboard map: a real, zoomable and pannable Leaflet map (NASA Mars Trek imagery) with the planning
+ * scene drawn on top. Planning state stays in canvas pixels (20 m each, see utils/geo.ts); an SVG overlay maps
+ * those pixels onto the current map view, so every marker, route and analysis raster stays georeferenced while
+ * you zoom. Reads shared state from the store and reports clicks/drags through store actions (mapPick, setRegion).
  */
 
+const W = 800, H = 500;
 const GRID = Array.from({ length: 40 * 25 }, (_, i) => ({ x: (i % 40) * 20, y: Math.floor(i / 40) * 20 }));
+
+// Angular display CRS: 1 degree = 2^zoom screen pixels, latitude up (same convention as the Mars map module).
+const crs: L.CRS = { ...L.CRS.Simple, code: 'MARS:CANONICAL_ANGULAR', distance() { throw Error('Metric calculations require explicit Mars projection'); } };
+const toLatLng = (p: Pt): L.LatLngTuple => { const c = pxToLonLat(p); return [c.latitude_deg, c.longitude_deg_east]; };
+const fromLatLng = (ll: L.LatLng): Pt => lonLatToPx({ latitude_deg: ll.lat, longitude_deg_east: ll.lng });
+
+interface View { w: number; h: number; a: number; d: number; e: number; f: number }
+const INITIAL: View = { w: 0, h: 0, a: 1, d: 1, e: 0, f: 0 };
 
 const GridLayer = memo(function GridLayer({ id, op, slope }: { id: 'elev' | 'slope' | 'haz'; op: number; slope: number }) {
   const cells = useMemo(() => GRID.flatMap((g) => {
@@ -27,24 +39,6 @@ const GridLayer = memo(function GridLayer({ id, op, slope }: { id: 'elev' | 'slo
   return <g opacity={op}>{cells}</g>;
 });
 
-/** Real Mars surface imagery (NASA Mars Trek, Viking MDIM 232 m) behind the 800 x 500 planning canvas. */
-const RealImagery = memo(function RealImagery({ op }: { op: number }) {
-  const tiles = useMemo(() => {
-    const nw = pxToLonLat({ x: 0, y: 0 }), se = pxToLonLat({ x: 800, y: 500 });
-    return trekTilesFor(7, nw.longitude_deg_east, se.latitude_deg, se.longitude_deg_east, nw.latitude_deg).map((t) => {
-      const a = lonLatToPx({ latitude_deg: t.north, longitude_deg_east: t.west });
-      const b = lonLatToPx({ latitude_deg: t.south, longitude_deg_east: t.east });
-      return { key: `${t.row}-${t.col}`, href: trekUrl(t), x: a.x, y: a.y, w: b.x - a.x + 0.6, h: b.y - a.y + 0.6 };
-    });
-  }, []);
-  return (
-    <g opacity={op}>
-      {tiles.map((t) => <image key={t.key} href={t.href} x={t.x} y={t.y} width={t.w} height={t.h} preserveAspectRatio="none" />)}
-      <rect width={800} height={500} fill="#0b1220" opacity={0.12} />
-    </g>
-  );
-});
-
 /** A real analysis image (PNG from the backend) placed on the canvas by its geographic bounds. */
 const RealRaster = memo(function RealRaster({ href, bounds, op }: { href: string; bounds: BoundingBox; op: number }) {
   const a = lonLatToPx({ latitude_deg: bounds.north_deg, longitude_deg_east: bounds.west_deg_east });
@@ -52,85 +46,161 @@ const RealRaster = memo(function RealRaster({ href, bounds, op }: { href: string
   return <image href={href} x={a.x} y={a.y} width={b.x - a.x} height={b.y - a.y} opacity={op} preserveAspectRatio="none" style={{ imageRendering: 'pixelated' }} />;
 });
 
-function Label({ p, text, fill = '#fff' }: { p: Pt; text: string; fill?: string }) {
-  return <text x={p.x + 11} y={p.y + 4} fill={fill} fontSize={12} fontWeight={600} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">{text}</text>;
+/** Draws children in screen pixels at a canvas position, so markers keep their size while the map zooms. */
+function Pin({ p, k, children }: { p: Pt; k: View; children: ReactNode }) {
+  return <g transform={`translate(${p.x} ${p.y}) scale(${1 / k.a} ${1 / k.d})`}>{children}</g>;
 }
+const Label = ({ text, fill = '#fff' }: { text: string; fill?: string }) => (
+  <text x={11} y={4} fill={fill} fontSize={12} fontWeight={600} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">{text}</text>
+);
 const pts = (p: Pt[]) => p.map((q) => `${q.x},${q.y}`).join(' ');
+const NS = 'non-scaling-stroke';
 
 export default function MapCanvas() {
   const s = useStore();
-  const svgRef = useRef<SVGSVGElement>(null);
-  const dragRef = useRef<Pt | null>(null);
+  const hostRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const imageryRef = useRef<L.GridLayer | null>(null);
+  const coRef = useRef<HTMLDivElement>(null);
+  const [k, setK] = useState<View>(INITIAL);
   const [rubber, setRubber] = useState<{ a: Pt; b: Pt } | null>(null);
-  const [coord, setCoord] = useState<Pt | null>(null);
-  const L = s.layers;
-  const regionMode = s.pick === 'region' || (s.mode === 'analyze' && !s.pick);
+  const L_ = s.layers;
+  const drawing = s.pick === 'region';
   const segs = segsOf(s);
   const c = s.nav ? combined(s) : null;
   const navP = c && s.nav ? c.s.p[Math.min(s.nav.i, c.s.p.length - 1)] : null;
   const cov = s.region ?? { x: s.base.x - 200, y: s.base.y - 150, w: 400, h: 300 };
+  const latest = useRef(s);
+  latest.current = s;
 
-  const toPt = (e: PointerEvent): Pt => {
-    const svg = svgRef.current as SVGSVGElement, p = svg.createSVGPoint();
-    p.x = e.clientX; p.y = e.clientY;
-    const q = p.matrixTransform((svg.getScreenCTM() as DOMMatrix).inverse());
-    return { x: Math.round(q.x), y: Math.round(q.y) };
-  };
+  // Create the map once; keep the SVG overlay in step with the view.
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const m = L.map(host, {
+      crs, zoomControl: false, zoomSnap: 0.25, zoomDelta: 0.5, wheelPxPerZoomLevel: 100, zoomAnimation: false,
+      minZoom: 3, maxZoom: 15, attributionControl: true, doubleClickZoom: true,
+      maxBounds: [[-90, -180], [90, 180]], maxBoundsViscosity: 0.8,
+    });
+    mapRef.current = m;
+    L.control.zoom({ position: 'bottomright' }).addTo(m);
+    m.attributionControl.setPrefix(false);
+    m.fitBounds([toLatLng({ x: 0, y: H }), toLatLng({ x: W, y: 0 })], { padding: [0, 0] });
+
+    let raf = 0;
+    const sync = () => {
+      raf = 0;
+      const size = m.getSize();
+      const at = (p: Pt) => m.latLngToContainerPoint(toLatLng(p));
+      const p0 = at({ x: 0, y: 0 }), p1 = at({ x: W, y: H });
+      setK({ w: size.x, h: size.y, a: (p1.x - p0.x) / W, d: (p1.y - p0.y) / H, e: p0.x, f: p0.y });
+    };
+    const queue = () => { if (!raf) raf = requestAnimationFrame(sync); };
+    m.on('move zoom resize', queue);
+    sync();
+    const ro = new ResizeObserver(() => { m.invalidateSize(); queue(); });
+    ro.observe(host);
+
+    m.on('click', (e: L.LeafletMouseEvent) => { latest.current.mapPick(fromLatLng(e.latlng)); });
+    m.on('mousemove', (e: L.LeafletMouseEvent) => {
+      if (coRef.current) coRef.current.textContent = fmtCoord(fromLatLng(e.latlng));
+    });
+    m.on('mouseout', () => { if (coRef.current) coRef.current.textContent = 'Hover the map for coordinates'; });
+    return () => { if (raf) cancelAnimationFrame(raf); ro.disconnect(); m.off(); m.remove(); mapRef.current = null; imageryRef.current = null; };
+  }, []);
+
+  // Real imagery layer follows the "Mars surface imagery" toggle and opacity.
+  useEffect(() => {
+    const m = mapRef.current;
+    if (!m) return;
+    if (!L_.opt.on) { imageryRef.current?.remove(); imageryRef.current = null; return; }
+    if (!imageryRef.current) { imageryRef.current = marsTrekLayer(L_.opt.op).addTo(m); imageryRef.current.setZIndex(1); }
+    else imageryRef.current.setOpacity(L_.opt.op);
+  }, [L_.opt.on, L_.opt.op]);
+
+  // Drag to draw a region only while "select region" is active; otherwise dragging pans the map.
+  useEffect(() => {
+    const m = mapRef.current, host = hostRef.current;
+    if (!m || !host) return;
+    if (!drawing) { m.dragging.enable(); host.style.cursor = ''; return; }
+    m.dragging.disable();
+    host.style.cursor = 'crosshair';
+    let start: Pt | null = null, startScreen: L.Point | null = null;
+    const at = (ev: PointerEvent) => { const cp = m.mouseEventToContainerPoint(ev); return { p: fromLatLng(m.containerPointToLatLng(cp)), cp }; };
+    const down = (ev: PointerEvent) => {
+      if (ev.button !== 0 || (ev.target as HTMLElement).closest('.leaflet-control')) return;
+      const r = at(ev); start = r.p; startScreen = r.cp; host.setPointerCapture(ev.pointerId);
+    };
+    const move = (ev: PointerEvent) => { if (start) setRubber({ a: start, b: at(ev).p }); };
+    const up = (ev: PointerEvent) => {
+      if (!start || !startScreen) return;
+      const r = at(ev), a = start, big = r.cp.distanceTo(startScreen) > 8;
+      start = null; startScreen = null; setRubber(null);
+      if (big) latest.current.setRegion({ x: Math.round(Math.min(a.x, r.p.x)), y: Math.round(Math.min(a.y, r.p.y)), w: Math.round(Math.abs(r.p.x - a.x)), h: Math.round(Math.abs(r.p.y - a.y)) });
+    };
+    host.addEventListener('pointerdown', down); host.addEventListener('pointermove', move); host.addEventListener('pointerup', up);
+    return () => { host.removeEventListener('pointerdown', down); host.removeEventListener('pointermove', move); host.removeEventListener('pointerup', up); host.style.cursor = ''; setRubber(null); };
+  }, [drawing]);
+
+  // Bring a focused item (for example a selected target) into view.
+  useEffect(() => {
+    const m = mapRef.current;
+    if (m && s.focus) m.setView(toLatLng(s.focus), Math.max(m.getZoom(), 12.5));
+  }, [s.focus]);
+
+  const fit = () => mapRef.current?.fitBounds([toLatLng({ x: 0, y: H }), toLatLng({ x: W, y: 0 })]);
+  const world = `matrix(${k.a} 0 0 ${k.d} ${k.e} ${k.f})`;
 
   return (
     <>
-      <svg id="map" ref={svgRef} viewBox="0 0 800 500" preserveAspectRatio="xMidYMid slice"
-        onPointerDown={(e) => { dragRef.current = toPt(e); }}
-        onPointerMove={(e) => { const p = toPt(e); setCoord(p); if (dragRef.current && regionMode) setRubber({ a: dragRef.current, b: p }); }}
-        onPointerUp={(e) => {
-          const a = dragRef.current, b = toPt(e);
-          dragRef.current = null; setRubber(null);
-          if (!a) return;
-          if (regionMode && Math.hypot(b.x - a.x, b.y - a.y) > 12) { s.setRegion({ x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(b.x - a.x), h: Math.abs(b.y - a.y) }); return; }
-          s.mapPick(b);
-        }}>
-        <rect width={800} height={500} fill="#0d1420" />
-        {L.opt.on && <RealImagery op={L.opt.op} />}
-        {L.elev.on && (s.real ? <RealRaster href={s.real.layers.elevation.href} bounds={s.real.layers.elevation.bounds} op={L.elev.op} /> : <GridLayer id="elev" op={L.elev.op} slope={s.slope} />)}
-        {L.slope.on && (s.real ? <RealRaster href={s.real.layers.slope.href} bounds={s.real.layers.slope.bounds} op={L.slope.op} /> : <GridLayer id="slope" op={L.slope.op} slope={s.slope} />)}
-        {L.haz.on && (s.real ? <RealRaster href={`${s.real.hazardBase}?slope_limit_deg=${s.slope}`} bounds={s.real.layers.elevation.bounds} op={L.haz.op} /> : <GridLayer id="haz" op={L.haz.op} slope={s.slope} />)}
-        {L.spec.on && s.real?.layers.science && <RealRaster href={s.real.layers.science.href} bounds={s.real.layers.science.bounds} op={L.spec.op} />}
-        {L.therm.on && <ellipse cx={260} cy={190} rx={150} ry={90} fill="#e0603a" opacity={L.therm.op * 0.7} />}
-        {L.cov.on && (
-          <g opacity={L.cov.op}>
-            <rect width={800} height={500} fill="#6b7a94" />
-            <rect x={cov.x - 150} y={cov.y - 120} width={cov.w + 300} height={cov.h + 240} fill="#e8aa3c" />
-            <rect x={cov.x} y={cov.y} width={cov.w} height={cov.h} fill="#2dd4d0" />
-          </g>
-        )}
-        {s.region && <rect x={s.region.x} y={s.region.y} width={s.region.w} height={s.region.h} fill="none" stroke="#2dd4d0" strokeWidth={2} strokeDasharray="8 4" />}
-        {s.obs.map((o, i) => (
-          <g key={i}>
-            <circle cx={o.x} cy={o.y} r={o.r} fill="#e5645f55" stroke="#e5645f" strokeWidth={2} strokeDasharray="3 3" />
-            <text x={o.x} y={o.y + 4} fill="#fff" fontSize={11} textAnchor="middle">Obstacle</text>
-          </g>
-        ))}
-        {s.prev && <polyline points={pts(s.prev)} fill="none" stroke="#fff" strokeWidth={2} strokeDasharray="2 5" opacity={0.6} />}
-        {s.mode === 'route' && s.routes.map((r, i) => i !== s.sel && <polyline key={r.k} points={pts(r.out.p)} fill="none" stroke={r.c} strokeWidth={2} opacity={0.45} />)}
-        {segs.map((x, i) => <polyline key={i} points={pts(x.s.p)} fill="none" stroke={x.c} strokeWidth={x.dashed ? 3 : 5} strokeDasharray={x.dashed ? '9 5' : undefined} strokeLinecap="round" />)}
-        {s.targets.map((t) => {
-          const o = s.mission?.feasible ? s.mission.legs.findIndex((l) => l.t === t) : -1;
-          return (
-            <g key={t.id}>
-              <rect x={t.x - 6} y={t.y - 6} width={12} height={12} fill={s.selT === t.id ? '#fff' : '#c0653a'} stroke="#fff" transform={`rotate(45 ${t.x} ${t.y})`} style={{ cursor: 'pointer' }} onClick={() => s.selectTarget(t.id)} />
-              <Label p={t} text={o >= 0 ? `${o + 1}. ${t.id}` : t.id} fill="#f3d9c8" />
+      <div id="map" ref={hostRef} className="leafmap" />
+      <svg id="mapov" width={k.w} height={k.h} viewBox={`0 0 ${k.w || 1} ${k.h || 1}`}>
+        <g transform={world}>
+          {L_.elev.on && (s.real ? <RealRaster href={s.real.layers.elevation.href} bounds={s.real.layers.elevation.bounds} op={L_.elev.op} /> : <GridLayer id="elev" op={L_.elev.op} slope={s.slope} />)}
+          {L_.slope.on && (s.real ? <RealRaster href={s.real.layers.slope.href} bounds={s.real.layers.slope.bounds} op={L_.slope.op} /> : <GridLayer id="slope" op={L_.slope.op} slope={s.slope} />)}
+          {L_.haz.on && (s.real ? <RealRaster href={`${s.real.hazardBase}?slope_limit_deg=${s.slope}`} bounds={s.real.layers.elevation.bounds} op={L_.haz.op} /> : <GridLayer id="haz" op={L_.haz.op} slope={s.slope} />)}
+          {L_.spec.on && s.real?.layers.science && <RealRaster href={s.real.layers.science.href} bounds={s.real.layers.science.bounds} op={L_.spec.op} />}
+          {L_.therm.on && <ellipse cx={260} cy={190} rx={150} ry={90} fill="#e0603a" opacity={L_.therm.op * 0.7} />}
+          {L_.cov.on && (
+            <g opacity={L_.cov.op}>
+              <rect x={-2000} y={-2000} width={4800} height={4500} fill="#6b7a94" />
+              <rect x={cov.x - 150} y={cov.y - 120} width={cov.w + 300} height={cov.h + 240} fill="#e8aa3c" />
+              <rect x={cov.x} y={cov.y} width={cov.w} height={cov.h} fill="#2dd4d0" />
             </g>
-          );
-        })}
-        {s.wps.map((w, i) => <g key={i}><circle cx={w.x} cy={w.y} r={6} fill="#e8aa3c" stroke="#fff" /><Label p={w} text={`WP${i + 1}`} /></g>)}
-        <rect x={s.base.x - 7} y={s.base.y - 7} width={14} height={14} fill="#fff" /><Label p={s.base} text="Base" />
-        {s.start && <g><circle cx={s.start.x} cy={s.start.y} r={7} fill="#2dd4d0" stroke="#fff" strokeWidth={2} /><Label p={s.start} text="Start" /></g>}
-        {s.dest && <g><circle cx={s.dest.x} cy={s.dest.y} r={10} fill="none" stroke="#2dd4d0" strokeWidth={3} /><Label p={s.dest} text="Destination" /></g>}
-        {s.focus && <circle cx={s.focus.x} cy={s.focus.y} r={22} fill="#e8aa3c33" stroke="#e8aa3c" strokeWidth={2} />}
-        {navP && <g><circle cx={navP.x} cy={navP.y} r={8} fill="#fff" stroke="#2dd4d0" strokeWidth={3} /><text x={navP.x + 12} y={navP.y - 8} fill="#fff" fontSize={12} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">Simulated astronaut</text></g>}
-        {rubber && <rect x={Math.min(rubber.a.x, rubber.b.x)} y={Math.min(rubber.a.y, rubber.b.y)} width={Math.abs(rubber.b.x - rubber.a.x)} height={Math.abs(rubber.b.y - rubber.a.y)} fill="#2dd4d022" stroke="#2dd4d0" strokeDasharray="6 3" />}
+          )}
+          {s.region && <rect x={s.region.x} y={s.region.y} width={s.region.w} height={s.region.h} fill="none" stroke="#2dd4d0" strokeWidth={2} strokeDasharray="8 4" vectorEffect={NS} />}
+          {s.obs.map((o, i) => (
+            <g key={i}>
+              <circle cx={o.x} cy={o.y} r={o.r} fill="#e5645f55" stroke="#e5645f" strokeWidth={2} strokeDasharray="3 3" vectorEffect={NS} />
+              <Pin p={o} k={k}><text y={4} fill="#fff" fontSize={11} textAnchor="middle">Obstacle</text></Pin>
+            </g>
+          ))}
+          {s.prev && <polyline points={pts(s.prev)} fill="none" stroke="#fff" strokeWidth={2} strokeDasharray="2 5" opacity={0.6} vectorEffect={NS} />}
+          {s.mode === 'route' && s.routes.map((r, i) => i !== s.sel && <polyline key={r.k} points={pts(r.out.p)} fill="none" stroke={r.c} strokeWidth={2} opacity={0.45} vectorEffect={NS} />)}
+          {segs.map((x, i) => <polyline key={i} points={pts(x.s.p)} fill="none" stroke={x.c} strokeWidth={x.dashed ? 3 : 5} strokeDasharray={x.dashed ? '9 5' : undefined} strokeLinecap="round" vectorEffect={NS} />)}
+          {s.targets.map((t) => {
+            const o = s.mission?.feasible ? s.mission.legs.findIndex((l) => l.t === t) : -1;
+            return (
+              <Pin key={t.id} p={t} k={k}>
+                <rect x={-6} y={-6} width={12} height={12} fill={s.selT === t.id ? '#fff' : '#c0653a'} stroke="#fff" transform="rotate(45)" style={{ cursor: 'pointer', pointerEvents: 'all' }} onClick={() => s.selectTarget(t.id)} />
+                <Label text={o >= 0 ? `${o + 1}. ${t.id}` : t.id} fill="#f3d9c8" />
+              </Pin>
+            );
+          })}
+          {s.wps.map((w, i) => <Pin key={i} p={w} k={k}><circle r={6} fill="#e8aa3c" stroke="#fff" /><Label text={`WP${i + 1}`} /></Pin>)}
+          <Pin p={s.base} k={k}><rect x={-7} y={-7} width={14} height={14} fill="#fff" /><Label text="Base" /></Pin>
+          {s.start && <Pin p={s.start} k={k}><circle r={7} fill="#2dd4d0" stroke="#fff" strokeWidth={2} /><Label text="Start" /></Pin>}
+          {s.dest && <Pin p={s.dest} k={k}><circle r={10} fill="none" stroke="#2dd4d0" strokeWidth={3} /><Label text="Destination" /></Pin>}
+          {s.focus && <Pin p={s.focus} k={k}><circle r={22} fill="#e8aa3c33" stroke="#e8aa3c" strokeWidth={2} /></Pin>}
+          {navP && <Pin p={navP} k={k}><circle r={8} fill="#fff" stroke="#2dd4d0" strokeWidth={3} /><text x={12} y={-8} fill="#fff" fontSize={12} stroke="#0b1220" strokeWidth={3} paintOrder="stroke">Simulated astronaut</text></Pin>}
+          {rubber && <rect x={Math.min(rubber.a.x, rubber.b.x)} y={Math.min(rubber.a.y, rubber.b.y)} width={Math.abs(rubber.b.x - rubber.a.x)} height={Math.abs(rubber.b.y - rubber.a.y)} fill="#2dd4d022" stroke="#2dd4d0" strokeDasharray="6 3" vectorEffect={NS} />}
+        </g>
       </svg>
-      <div className="ov" id="co">{coord ? fmtCoord(coord) : 'Hover the map for coordinates'}</div>
+      <div className="mtools">
+        <button className={drawing ? 'on' : ''} onClick={() => s.setPick(drawing ? null : 'region')} title="Drag a box on the map to choose the analysis area">▭ {drawing ? 'Drawing: drag on map' : 'Select region'}</button>
+        <button onClick={fit} title="Zoom to the planning area">⌖ Fit</button>
+      </div>
+      <div className="ov" id="co" ref={coRef}>Hover the map for coordinates</div>
     </>
   );
 }

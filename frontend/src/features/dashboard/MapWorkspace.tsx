@@ -1,8 +1,12 @@
+import { lazy, Suspense } from 'react';
 import { useStore } from '../../store/dashboardStore';
+import { useMissionStore } from '../../store/missionStore';
 import { combined } from '../../utils/derive';
 import { fmtDuration } from '../../utils/geo';
 import { LAYERS } from '../../utils/layers';
 import MapCanvas from './MapCanvas';
+
+const Terrain3D = lazy(() => import('../mars-map/Terrain3D').then((m) => ({ default: m.Terrain3D })));
 
 const LEGEND: Record<string, string> = {
   opt: 'Real imagery: NASA Mars Trek (Viking, 232 m)', elev: 'Simulated elevation: blue low → white high', slope: 'Simulated slope: green gentle → red steep',
@@ -108,10 +112,17 @@ function AssistantDrawer() {
 }
 
 export default function MapWorkspace() {
+  const view = useMissionStore((m) => m.view);
   return (
     <div id="mw">
-      <Banner />
-      <MapCanvas />
+      {view === '3d' ? (
+        <Suspense fallback={<div className="ov" id="bn">Loading the 3D terrain…</div>}><div className="v3d"><Terrain3D /></div></Suspense>
+      ) : (
+        <>
+          <Banner />
+          <MapCanvas />
+        </>
+      )}
       <Legend />
       <JobOverlay />
       <NavHud />
