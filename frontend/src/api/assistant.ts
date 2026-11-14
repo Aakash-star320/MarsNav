@@ -11,6 +11,15 @@ import { lonLatToPx, regionZoom } from '../utils/geo';
 
 export class AssistantError extends Error {}
 
+/** The header label names the model that really answers: Gemma, Gemini, or just the id of anything else. */
+export function modelLabel(model: string | null | undefined): string {
+  const m = (model ?? '').trim();
+  if (!m) return 'Hosted model';
+  if (/^gemma/i.test(m)) return `Gemma · ${m}`;
+  if (/^gemini/i.test(m)) return `Gemini · ${m}`;
+  return `Model · ${m}`;
+}
+
 /** One id per browser session, so the backend can group the conversation; the analysis comes from `analysis_id`. */
 const SESSION_MISSION = crypto.randomUUID();
 

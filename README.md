@@ -12,7 +12,7 @@ MarsNav is a Martian Marswalk planner for NASA Space Apps 2026. Given a region o
 | 2D / 3D | 3D shows the real elevation as a solid block with the imagery draped over it; it reads the visible area by itself if nothing has been analysed |
 | Routes | Real routes on the analysed terrain from the routing service: shortest / safest / balanced comparison, waypoints, a base point for the return trip, obstacles with replanning, an elevation profile and navigation guidance |
 | Science missions | Real mission planner: picks the analysis' science targets that fit the oxygen budget, plans every leg and says why a target was left out |
-| Assistant | Docked chat panel with result cards and "show on map" actions. It uses a hosted Gemma model when `GEMMA_MODEL` and `GEMMA_API_KEY` are set and a rule-based assistant otherwise; the model can only call read-only, validated tools |
+| Assistant | Docked chat panel with result cards and "show on map" actions. It uses a hosted model (Gemma, or a Gemini model, named in the panel header) when `GEMMA_MODEL` and `GEMMA_API_KEY` are set and a rule-based assistant otherwise; the model can only call read-only, validated tools |
 | Contracts | Python and TypeScript mirrors; see [`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md) and [`docs/CONTRACT_CHANGELOG.md`](docs/CONTRACT_CHANGELOG.md) |
 | Not built | Download service and cache, the database-backed mission store, document search (RAG), other science objectives, finer terrain than 463 m (see [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md)) |
 
@@ -33,7 +33,7 @@ data/       Local data folders (contents are not committed)
 
 Requirements: Python **3.11 or 3.12** (not 3.13 or newer), Node.js 20 or newer. PostgreSQL is not needed for the current features.
 
-1. Optional: copy `.env.example` to `.env` at the repository root. To enable the hosted assistant set `GEMMA_MODEL` and `GEMMA_API_KEY` there; leave them empty to keep the rule-based assistant. Never commit `.env`.
+1. Optional: copy `.env.example` to `.env` at the repository root. To enable the hosted assistant set `GEMMA_MODEL` (a Gemma or Gemini model id) and `GEMMA_API_KEY` there; leave them empty to keep the rule-based assistant. Never commit `.env`.
 2. Backend (Git Bash):
    ```bash
    cd backend

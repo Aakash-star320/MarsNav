@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { useStore } from './dashboardStore';
-import { toChatMessage } from '../api/assistant';
+import { modelLabel, toChatMessage } from '../api/assistant';
 import type { AssistantResponse } from '../types/contracts';
 
 const reply = (body: unknown, status = 200) => Promise.resolve(new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } }));
@@ -21,6 +21,15 @@ beforeEach(() => {
   useStore.setState({ online: true, job: null, err: '', chat: [], pendingQ: null, assistantMode: 'gemma', assistantModel: 'test-model' });
 });
 afterEach(() => vi.restoreAllMocks());
+
+describe('the header names the model that really answers', () => {
+  it('Gemma, Gemini and unknown models are labelled as what they are', () => {
+    expect(modelLabel('gemma-4-26b-a4b-it')).toBe('Gemma · gemma-4-26b-a4b-it');
+    expect(modelLabel('gemini-3.5-flash')).toBe('Gemini · gemini-3.5-flash');
+    expect(modelLabel('some-other-model')).toBe('Model · some-other-model');
+    expect(modelLabel(null)).toBe('Hosted model');
+  });
+});
 
 describe('assistant answers become chat messages', () => {
   it('shows tool steps, a result card with candidates, and map actions taken from the tool results', () => {

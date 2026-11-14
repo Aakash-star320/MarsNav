@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../../store/dashboardStore';
 import type { ChatAction, ChatCard } from '../../types/ui';
+import { modelLabel } from '../../api/assistant';
 
 const SUGGESTIONS: { icon: string; title: string; desc: string; q: string }[] = [
   { icon: '◎', title: 'Analyze this region', desc: 'Read real terrain and screen for hydrated minerals', q: 'Analyze this region' },
@@ -86,7 +87,7 @@ export default function ChatPanel() {
         <div className="cx-title"><b>MarsNav Assistant</b>
           <span className={'cx-mode' + (online ? '' : ' off')}
             title={assistantMode === 'gemma' ? 'Answers come from a hosted language model. It can only look things up through checked tools, and its tool calls are validated.' : 'No language model is connected: the assistant runs the same checked actions as the buttons.'}>
-            <i />{!online ? 'Offline' : assistantMode === 'gemma' ? `Gemma · ${assistantModel ?? 'model'}` : 'Rule-based · verified actions only'}
+            <i />{!online ? 'Offline' : assistantMode === 'gemma' ? modelLabel(assistantModel) : 'Rule-based · verified actions only'}
           </span>
         </div>
         {chat.length > 0 && <button className="cx-ghost" onClick={clearChat} title="Start a new conversation">New chat</button>}
