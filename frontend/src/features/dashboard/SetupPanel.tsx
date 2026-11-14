@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useStore } from '../../store/missionStore';
+import { useStore } from '../../store/dashboardStore';
 import type { DataState, Mode, Pick } from '../../types/ui';
 import { fmtCoord, KM_PER_PX } from '../../utils/geo';
 import { LAYERS } from '../../utils/layers';

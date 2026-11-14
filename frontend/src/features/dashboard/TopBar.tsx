@@ -1,4 +1,4 @@
-import { useStore } from '../../store/missionStore';
+import { useStore } from '../../store/dashboardStore';
 import { fmtCoord } from '../../utils/geo';
 
 export default function TopBar() {

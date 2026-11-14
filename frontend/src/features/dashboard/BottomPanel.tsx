@@ -1,5 +1,5 @@
 import { useRef } from 'react';
-import { useStore } from '../../store/missionStore';
+import { useStore } from '../../store/dashboardStore';
 import type { Tab } from '../../types/ui';
 import { warningsOf } from '../../utils/derive';
 import ElevationChart from '../routing/ElevationChart';
