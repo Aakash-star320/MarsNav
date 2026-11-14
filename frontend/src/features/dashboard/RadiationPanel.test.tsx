@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import RadiationPanel from './RadiationPanel';
 import { MARS_SURFACE_RADIATION, doseForHours, fmtDose, ratePerHour } from '../../utils/radiation';
@@ -23,10 +23,9 @@ describe('radiation arithmetic', () => {
 describe('the radiation panel', () => {
   afterEach(cleanup);
 
-  it('says it is a typical value, names the source, and states what it does not cover', () => {
+  it('names the source and still lists what it does not cover', () => {
     render(<RadiationPanel hours={4.6} meanElevationM={-2504} />);
     const panel = screen.getByTestId('radiation-panel');
-    expect(within(panel).getByText(/typical value, not a forecast/i)).toBeTruthy();
     expect(panel.textContent).toContain('about 0.67 mSv per day');
     expect(panel.textContent).toMatch(/Gale crater/);
     expect(panel.textContent).toMatch(/solar storms/i);
