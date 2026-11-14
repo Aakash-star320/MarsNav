@@ -3,7 +3,6 @@ import type { ReactNode } from 'react';
 import { fmtMB } from '../../api/objectives';
 import { useStore } from '../../store/dashboardStore';
 import type { DataState, Mode, Pick } from '../../types/ui';
-import { prefetchCtx } from '../mars-map/BaseImagery';
 import { fmtCoord, KM_PER_PX, lonLatToPx, parseCoordPairs } from '../../utils/geo';
 import { LAYERS, realLabel } from '../../utils/layers';
 
@@ -161,17 +160,7 @@ export default function SetupPanel() {
         {mode === 'route' && (
           <>
             <CoordBox /><LocRow k="start" label="Start" /><LocRow k="dest" label="Destination" /><LocRow k="base" label="Base" />
-            <button className="inline" title="Sets Start 18.3700 N, 77.4350 E and Destination 18.4100 N, 77.4600 E in Jezero crater, then plans the route. Analyse that area first for routes on real terrain." onClick={() => {
-              const a = lonLatToPx({ latitude_deg: 18.37, longitude_deg_east: 77.435 }), b = lonLatToPx({ latitude_deg: 18.41, longitude_deg_east: 77.46 });
-              s.setField('start', { ...a });
-              s.setField('dest', { ...b });
-              s.setField('focusZoom', 13.5);
-              s.setField('focus', { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });   // zoom the map onto the route
-              setTimeout(() => s.setField('focus', null), 1200);
-              prefetchCtx({ west: 77.38, south: 18.33, east: 77.52, north: 18.45 });
-              s.setField('ret', false);
-              s.generate();
-            }}>Try demo route (Jezero)</button>
+
             <div className="lr"><span>Waypoints</span><b>{s.wps.length} added</b><button onClick={() => s.setPick('wp')}>Add</button><button onClick={s.clearWps}>Clear</button></div>
             <PresetSelect />
             <label><input type="checkbox" checked={s.ret} onChange={(e) => s.setField('ret', e.target.checked)} /> Return to base</label>
