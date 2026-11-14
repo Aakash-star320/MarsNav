@@ -3,7 +3,9 @@ import { useMissionStore } from '../../store/missionStore';
 import { fmtCoord } from '../../utils/geo';
 
 export default function TopBar() {
-  const { region, job, err, summary, routes, mission, online, toggleOnline, toggleAi, real, routeSource } = useStore();
+  const { region, job, err, summary, routes, mission, online, toggleOnline, toggleAi, real, routeSource, missionSource } = useStore();
+  const rr = routeSource === 'real' && routes.length > 0, mr = missionSource === 'real' && !!mission;
+  const terrainLabel = rr && mr ? 'Real terrain, routes and mission' : mr ? 'Real terrain and mission · routes simulated' : rr ? 'Real terrain and routes · missions simulated' : 'Real terrain analysis · routes simulated';
   const view = useMissionStore((m) => m.view), setView = useMissionStore((m) => m.setView);
   const status = job ? `${job.title}…` : err ? 'Error' : summary || routes.length || mission ? 'Results ready' : 'Idle';
   return (
@@ -12,7 +14,7 @@ export default function TopBar() {
       <span className="p">Mission: Jezero Walkabout-01</span>
       <span className="p">Region: {region ? fmtCoord(region) : 'none selected'}</span>
       <span className={'p' + (err ? ' w' : '')}>{status}</span>
-      {real ? <span className="p g" title="Elevation, slope and spectral layers come from the backend analysis">{routeSource === 'real' && routes.length ? 'Real terrain and routes · missions simulated' : 'Real terrain analysis · routes simulated'}</span>
+      {real ? <span className="p g" title="Elevation, slope and spectral layers come from the backend analysis">{terrainLabel}</span>
         : <span className="p w" title="Run Analyze Region for real terrain">Routes and missions simulated</span>}
       <span className="sp" />
       <button onClick={toggleOnline} style={{ color: online ? '#2dd4d0' : '#e8aa3c' }}>{online ? '● Online' : '○ Offline'}</button>

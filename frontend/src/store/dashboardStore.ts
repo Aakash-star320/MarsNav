@@ -7,6 +7,7 @@ import { PLANNING_AREA, autoTerrainRegion, getViewport } from '../utils/viewport
 import { API_BASE, AnalysisError, cancelAnalysis, createAnalysis, fetchMapPackage, waitForAnalysis } from '../api/analysis';
 import { regionToBounds, toDashboardTarget } from '../api/mapping';
 import { KM_PER_PX, WALK_KMH, lonLatToPx, pxToLonLat, regionZoom } from '../utils/geo';
+import { buildMissionRequest, planMissionRemote, toDashboardMission } from '../api/missions';
 import { RoutingError, buildRouteRequest, conflictText, guideRoute, obstacleToBlockedArea, planRoute, replanRoute, toDashboardRoutes } from '../api/routing';
 import { askAssistant, fetchAssistantStatus, toChatMessage } from '../api/assistant';
 import { defaultLayers } from '../utils/layers';
@@ -76,7 +77,7 @@ const initial: DataState = {
   job: null, err: '', stale: false, selT: null, real: null,
   pk: [{ n: 'Jezero region package (demo)', sz: '148 MB', st: 'Downloaded', up: '2026-11-12' }],
   pan: { L: true, R: false, B: false }, bh: 260, adv: false, lyOpen: false,
-  layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '', aiBar: null, focusZoom: null, assistantMode: null, assistantModel: null, pendingQ: null, routeSource: 'simulated', routeNotes: [], guideText: null,
+  layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '', aiBar: null, focusZoom: null, assistantMode: null, assistantModel: null, pendingQ: null, routeSource: 'simulated', missionSource: 'simulated', routeNotes: [], guideText: null,
 };
 
 export const useStore = create<Store>((set, get) => {
@@ -253,11 +254,32 @@ export const useStore = create<Store>((set, get) => {
   /** True when routes should come from the routing service: an analysis exists and there are no waypoints (the contract has none). */
   const realRoutesFor = (s: DataState) => !!s.real && s.wps.length === 0;
 
+  // -- real mission: the routing service picks real science targets and routes every leg on the analysed terrain ----
+  let missionToken = 0;
+  const runRealMission = async (from: Pt) => {
+    const s = get(), real = s.real;
+    if (!real || !real.missionId) return;
+    const token = ++missionToken;
+    set({ job: { title: 'Plan Mission', stages: ['Choose targets on the real terrain', 'Route each leg', 'Done'], i: 0, real: true }, err: '' });
+    try {
+      const res = await planMissionRemote(buildMissionRequest({ missionId: real.missionId, analysisId: real.id, start: from, base: s.base, targetIds: s.targets.map((t) => t.id),
+        slope: s.slope, maxKm: s.maxd, oxyH: s.oxy, reserveMin: s.res, examMin: s.exam, maxSites: s.maxSites, obs: s.obs }));
+      if (token !== missionToken || !get().job) return;            // superseded or cancelled while the service was working
+      const prev = s.mission?.feasible ? combined(s)?.s.p ?? null : null;
+      const mission = toDashboardMission(res, get().targets, { slope: s.slope });
+      set({ job: null, mission, prev, err: mission.feasible ? '' : s.err, missionSource: 'real' });
+      openPanels(true, mission.feasible);
+    } catch (e) {
+      if (token !== missionToken) return;
+      set({ job: null, err: e instanceof TypeError ? 'Cannot reach the routing service. Start the backend and try again.' : 'Mission planning failed: ' + (e as Error).message });
+    }
+  };
+
   const applyMission = (from: Pt) => {
     const s = get();
     const prev = s.mission?.feasible ? combined(s)?.s.p ?? null : null;
     const mission = planMission({ from, base: s.base, targets: s.targets, oxy: s.oxy, res: s.res, exam: s.exam, maxSites: s.maxSites, slope: s.slope, maxd: s.maxd, obs: s.obs });
-    set({ mission, prev, err: mission.feasible ? '' : s.err });
+    set({ mission, prev, err: mission.feasible ? '' : s.err, missionSource: 'simulated' });
     openPanels(true, mission.feasible);
   };
 
@@ -313,6 +335,8 @@ export const useStore = create<Store>((set, get) => {
     },
     plan: () => {
       set({ stale: false });
+      const rs = get();
+      if (rs.real && rs.targets.length > 0 && rs.online && insideRect(rs.base, analysedRect(rs.real))) { void runRealMission(rs.base); return; }   // otherwise the simulated planner, labelled simulated
       runJob('Plan Mission', [0, 1, 2, 3, 4, 5, 6, 7, 8], () => {
         const s = get();
         if (!s.targets.length) set({ targets: discoverTargets(s.region ?? { x: 20, y: 20, w: 760, h: 460 }) });
@@ -324,7 +348,7 @@ export const useStore = create<Store>((set, get) => {
       const s = get();
       set({
         pan: { ...s.pan, R: false, B: false }, start: null, dest: null, wps: [], region: null, targets: [], summary: null, real: null,
-        routes: [], mission: null, obs: [], prev: null, focus: null, err: '', stale: false, selT: null, routeSource: 'simulated', routeNotes: [], guideText: null,
+        routes: [], mission: null, obs: [], prev: null, focus: null, err: '', stale: false, selT: null, routeSource: 'simulated', missionSource: 'simulated', routeNotes: [], guideText: null,
         pick: s.mode === 'analyze' ? 'region' : null,
       });
     },
