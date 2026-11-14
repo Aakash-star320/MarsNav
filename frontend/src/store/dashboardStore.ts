@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { ChatAction, ChatMsg, DataState, Mode, PanelKey, Pick, Pt, Region, Tab, Target } from '../types/ui';
+import type { ChatAction, ChatCard, ChatMsg, DataState, Mode, PanelKey, Pick, Pt, Region, Tab, Target } from '../types/ui';
 import { STAGES, discoverTargets, planMission, planRoutes } from '../mocks/mock';
 import { combined } from '../utils/derive';
 import { useMissionStore } from './missionStore';
@@ -154,16 +154,29 @@ export const useStore = create<Store>((set, get) => {
         const relief = Math.max(1, (stats.elevation_max_m ?? 0) - (stats.elevation_min_m ?? 0)), width = Math.max(region.w, region.h) * KM_PER_PX * 1000;
         useMissionStore.setState({ dem: pkg.dem ?? undefined, focus: Date.now(), exaggeration: Math.max(1, Math.min(10, Math.round((0.12 * width) / relief))) });
       } catch (e3d) { console.warn('[analysis] 3D terrain not loaded:', (e3d as Error).message); }
-      openPanels(true, false);
-      if (chatWait) {
-        chatWait = false;
+      const viaChat = chatWait;
+      chatWait = false;
+      if (!viaChat) openPanels(true, false);       // a chat-started analysis answers in the chat, so the side panel stays out of the way
+      else {
         const found = get().targets;
+        const f1 = (v: number | null | undefined, d = 0) => (v == null ? 'n/a' : v.toFixed(d));
+        const card: ChatCard = {
+          stats: [
+            ['Area', `${(region.w * KM_PER_PX).toFixed(1)} × ${(region.h * KM_PER_PX).toFixed(1)} km`],
+            ['Valid data', `${f1(stats.valid_percent)}%`],
+            ['Elevation', `${f1(stats.elevation_min_m)} to ${f1(stats.elevation_max_m)} m`],
+            ['Mean slope', `${f1(stats.slope_mean_deg, 1)}°`],
+            ['Max slope', `${f1(stats.slope_max_deg, 1)}°`],
+            [`Steeper than ${stats.slope_limit_deg ?? get().slope}°`, `${f1(100 * (stats.slope_exceedance_fraction ?? 0), 1)}% of cells`],
+          ],
+          targets: found.map((t) => ({ id: t.id, label: t.label ?? t.id, score: t.score, conf: t.conf, evidence: t.evidence?.[0], at: { x: t.x, y: t.y } })),
+          warnings: [...done.warnings, ...pkg.notes.filter((n) => !done.warnings.includes(n))],
+        };
         botSays({
           u: '', r: found.length
-            ? `Analysis finished. ${found.length} hydrated-mineral candidate${found.length > 1 ? 's' : ''} met the screening rule, ranked below. These are heuristic screens of CRISM summary parameters, not identified minerals. Elevation spans ${Math.round(stats.elevation_min_m ?? 0)} to ${Math.round(stats.elevation_max_m ?? 0)} m.`
-            : `Analysis finished. No candidate met the rule in the covered part of the area. That is not evidence that hydrated minerals are absent. Elevation spans ${Math.round(stats.elevation_min_m ?? 0)} to ${Math.round(stats.elevation_max_m ?? 0)} m.`,
-          note: 'Terrain is 463 m resolution: broad planning only, not astronaut-scale hazard detection.',
-          actions: [regionAction(region), ...found.slice(0, 3).map((t) => ({ label: 'Show ' + (t.label ?? t.id), at: { x: t.x, y: t.y }, id: t.id }))],
+            ? `Analysis finished. ${found.length} hydrated-mineral candidate${found.length > 1 ? 's' : ''} met the screening rule. These are heuristic screens of CRISM summary parameters, not identified minerals.`
+            : 'Analysis finished. No candidate met the rule in the covered part of the area. That is not evidence that hydrated minerals are absent.',
+          card, actions: [regionAction(region), { label: 'Open full details', open: 'results' }],
         });
       }
     } catch (e) {
@@ -290,7 +303,7 @@ export const useStore = create<Store>((set, get) => {
     toggleAi: () => set((s) => ({ aiOpen: !s.aiOpen, aiBar: null })),
     clearChat: () => set({ chat: [], aiDraft: '', aiBar: null }),
     /** Collapses the chat to a small bar and brings the item into view on the map. */
-    showOnMap: (a) => set((s) => ({ focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
+    showOnMap: (a) => a.open ? openPanels(true, false) : a.at && set((s) => ({ focus: a.at, focusZoom: a.zoom ?? null, selT: a.id ?? s.selT, aiOpen: false, aiBar: s.chat[s.chat.length - 1]?.r ?? 'Showing it on the map.' })),
     setAiDraft: (v) => set({ aiDraft: v }),
 
     navStart: () => {
@@ -407,7 +420,7 @@ export const useStore = create<Store>((set, get) => {
       }
       if (!did.length) { say('I can analyze a region, plan a route or mission, change limits, or explain science. Try a suggestion.'); return; }
 const rg = get().region, acts: ChatAction[] = rg && did.some((d) => /Analyze/.test(d)) ? [regionAction(rg)] : [];
-      say('Done. I applied these checked actions; results appear on the map and in the Results panel.', { steps: did, actions: acts });
+      say('Done. I applied these checked actions; I will report back here when it finishes.', { steps: did, actions: acts });
     },
   };
 });

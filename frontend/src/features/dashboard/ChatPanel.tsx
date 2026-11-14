@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useStore } from '../../store/dashboardStore';
-import type { ChatAction } from '../../types/ui';
+import type { ChatAction, ChatCard } from '../../types/ui';
 
 const SUGGESTIONS: { icon: string; title: string; desc: string; q: string }[] = [
   { icon: '◎', title: 'Analyze this region', desc: 'Read real terrain and screen for hydrated minerals', q: 'Analyze this region' },
@@ -22,7 +22,33 @@ function Actions({ actions }: { actions: ChatAction[] }) {
   const show = useStore((s) => s.showOnMap);
   return (
     <div className="cx-actions">
-      {actions.map((a, i) => <button key={i} className="cx-act" onClick={() => show(a)}><span>⌖</span>{a.label}</button>)}
+      {actions.map((a, i) => <button key={i} className={'cx-act' + (a.open ? ' alt' : '')} onClick={() => show(a)}><span>{a.open ? '☰' : '⌖'}</span>{a.label}</button>)}
+    </div>
+  );
+}
+
+function Card({ card }: { card: ChatCard }) {
+  const show = useStore((s) => s.showOnMap);
+  return (
+    <div className="cx-res">
+      <div className="cx-stats">{card.stats.map(([k, v]) => <div key={k}><small>{k}</small><b>{v}</b></div>)}</div>
+      {card.targets.length > 0 && (
+        <div className="cx-tg">
+          <h4>Candidates</h4>
+          {card.targets.map((t) => (
+            <div key={t.id} className="cx-t">
+              <div className="cx-t-h"><b>{t.label}</b><span className="cx-pill">{t.score}%</span><span className="cx-pill soft">{t.conf} confidence</span>
+                <button className="cx-mini" onClick={() => show({ label: t.label, at: t.at, id: t.id })}>⌖ Show</button></div>
+              {t.evidence && <p>{t.evidence}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+      {card.warnings.length > 0 && (
+        <details className="cx-warn"><summary>{card.warnings.length} note{card.warnings.length > 1 ? 's' : ''} and limitations</summary>
+          {card.warnings.map((w, i) => <p key={i}>{w}</p>)}
+        </details>
+      )}
     </div>
   );
 }
@@ -89,6 +115,7 @@ export default function ChatPanel() {
                   <div className="cx-bot-c">
                     {m.steps && m.steps.length > 0 && <div className="cx-steps">{m.steps.map((s) => <span key={s}><i>✓</i>{s}</span>)}</div>}
                     <p className={m.err ? 'cx-err' : undefined}>{m.r}</p>
+                    {m.card && <Card card={m.card} />}
                     {m.note && <div className="cx-note">{m.note}</div>}
                     {m.actions && m.actions.length > 0 && <Actions actions={m.actions} />}
                   </div>

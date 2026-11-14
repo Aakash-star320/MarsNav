@@ -183,3 +183,17 @@ h2 .p{display:inline-block;margin-left:8px;padding:1px 8px;font-size:10px;letter
 .cx-bar-t{font-size:13px;color:#dbe6f4;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
 .cx-bar-open{padding:7px 13px;border-radius:10px;font-size:12.5px;font-weight:600;border:0;color:#06231f;background:linear-gradient(135deg,#5ff1da,#37a8ff);flex:none}
 @media(max-width:1180px){#C{position:absolute;right:0;top:0;bottom:0;z-index:7;width:min(460px,100%)}}
+
+.cx-res{margin-top:12px;border-radius:14px;border:1px solid #ffffff14;background:linear-gradient(160deg,#ffffff0a,#ffffff03);overflow:hidden}
+.cx-stats{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:#ffffff0f}
+.cx-stats div{background:#0c1525;padding:10px 13px;display:flex;flex-direction:column;gap:2px}
+.cx-stats small{font-size:11.5px;color:#7f94b3}.cx-stats b{font-size:14px;font-weight:600;color:#eef3fa}
+.cx-tg{padding:12px 13px 4px;border-top:1px solid #ffffff10}.cx-tg h4{margin:0 0 8px;font-size:11.5px;font-weight:600;letter-spacing:.04em;color:#8fa6c4}
+.cx-t{padding:10px 0;border-top:1px solid #ffffff0d}.cx-t:first-of-type{border-top:0;padding-top:2px}
+.cx-t-h{display:flex;align-items:center;gap:7px;flex-wrap:wrap}.cx-t-h b{font-size:13.5px}
+.cx-pill{font-size:11.5px;font-weight:600;padding:2px 9px;border-radius:999px;background:#37e0c622;color:#6af3df;border:1px solid #37e0c644}.cx-pill.soft{background:#ffffff0a;color:#a9bbd6;border-color:#ffffff1a;font-weight:500}
+.cx-mini{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:9px;background:#ffffff0a;border:1px solid #ffffff1a;color:#cfe0f5}
+.cx-t p{margin:6px 0 0;font-size:12.5px;line-height:1.55;color:#9fb2cd}
+.cx-warn{margin:0;border:0;border-top:1px solid #ffffff10;border-radius:0;background:#f0b2540a;padding:10px 13px}
+.cx-warn summary{font-size:12.5px;color:#d3b878;cursor:pointer}.cx-warn p{margin:8px 0 0;font-size:12.3px;line-height:1.55;color:#c2ad7c}
+.cx-act.alt{background:#ffffff0c;color:#d7e6f8;border:1px solid #ffffff1c;box-shadow:none}.cx-act.alt:hover:not(:disabled){background:#ffffff14}
