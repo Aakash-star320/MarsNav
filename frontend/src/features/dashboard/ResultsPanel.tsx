@@ -127,7 +127,7 @@ export default function ResultsPanel() {
           <>
             <h2>Time and oxygen budget</h2>
             {mode === 'route' && <BudgetBar b={b} />}
-            <button className="pri" style={{ marginTop: 4 }} disabled={!!nav} onClick={s.navStart}>Start Navigation (simulation)</button>
+            <button className="pri" style={{ marginTop: 4 }} disabled={!!nav} onClick={s.navStart}>Start Navigation</button>
           </>
         )}
 
