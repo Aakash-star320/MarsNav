@@ -423,3 +423,8 @@ th { letter-spacing: 0.05em; }
   #R:not(.col) { right: 0; }
   #C { width: 100%; z-index: 10; }
 }
+
+.mwrap { position: relative; display: inline-flex; }
+.mpop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 50; min-width: 150px; display: flex; flex-direction: column; padding: 6px; border-radius: 12px; background: #0b121f; border: 1px solid var(--line2); box-shadow: 0 16px 36px rgba(0, 0, 0, 0.55); }
+.mpop button { text-align: left; padding: 11px 14px; border: 0; border-radius: 8px; background: transparent; color: var(--tx); font-weight: 600; }
+.mpop button.on { background: var(--tealbg); color: var(--teal); }
