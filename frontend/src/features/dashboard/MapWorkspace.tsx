@@ -83,7 +83,7 @@ function NavHud() {
   const sg = c.sg[c.b.filter((x) => x <= i).length - 1], done = i >= st.p.length - 1;
   return (
     <div className="ov" id="hud">
-      <div className="hh"><b>Navigation</b><span className="p w">Simulation</span></div>
+      <div className="hh"><b>Navigation</b></div>
       <div className="hp" title={`${Math.round((st.cum[i] / st.d) * 100)}% of the route walked`}><i style={{ width: `${Math.min(100, (st.cum[i] / st.d) * 100)}%` }} /></div>
       <div className="hs">
         <div><small>Segment</small><b>{sg.n}</b></div>
