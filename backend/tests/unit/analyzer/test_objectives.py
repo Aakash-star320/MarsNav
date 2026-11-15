@@ -7,8 +7,8 @@ from fastapi.testclient import TestClient
 
 from app.analyzer.orchestration.pipeline import AnalyzerDeps, run_region_analysis
 from app.analyzer.preprocessing.terrain_bundle import _grid
-from app.analyzer.science import terrain_objectives as T
-from app.analyzer.science.objectives import FLAT_SITES, HYDRATED, VANTAGE, get_objective, list_objectives, resolve_objective, supported_labels
+from app.analyzer.science import terrain_features as F, terrain_objectives as T
+from app.analyzer.science.objectives import CLIFFS, CRATERS, FLAT_SITES, HYDRATED, LOWEST, RIDGES, VANTAGE, get_objective, list_objectives, resolve_objective, supported_labels
 from app.connectors.usgs.mola import MolaLayout
 from app.schemas import BoundingBox, CreateAnalysisRequest, RegionOfInterest
 
@@ -48,10 +48,10 @@ def hill(a, row, col, height, sigma=2.0):
 # -- the registry -----------------------------------------------------------------------------------------
 def test_the_registry_lists_the_supported_objectives_with_their_limits() -> None:
     items = list_objectives()
-    assert [o.id for o in items] == [HYDRATED, FLAT_SITES, VANTAGE]
+    assert [o.id for o in items] == [HYDRATED, FLAT_SITES, VANTAGE, LOWEST, CLIFFS, RIDGES, CRATERS]
     assert {o.kind for o in items} == {"spectral", "terrain"}
     assert all(o.label and o.description and o.keywords and o.data_used and o.limitation for o in items)
-    assert supported_labels() == "Hydrated minerals, Flat safe sites, High vantage points" and get_objective("nope") is None
+    assert supported_labels() == "Hydrated minerals, Flat safe sites, High vantage points, Lowest ground, Steep cliffs, Ridges, Craters" and get_objective("nope") is None
 
 
 @pytest.mark.parametrize("text, expected", [
@@ -59,6 +59,7 @@ def test_the_registry_lists_the_supported_objectives_with_their_limits() -> None
     ("clay-bearing sites", HYDRATED), ("science", HYDRATED), ("Flat safe sites", FLAT_SITES), ("flat safe sites for science", FLAT_SITES),
     ("find a safe landing site", FLAT_SITES), ("somewhere on level ground to set up camp", FLAT_SITES), ("High vantage points", VANTAGE),
     ("I need the highest point nearby", VANTAGE), ("an overlook with a view", VANTAGE), ("hilltops and peaks", VANTAGE),
+    ("find craters", CRATERS), ("the lowest ground", LOWEST), ("a basin", LOWEST), ("steep cliffs", CLIFFS), ("long ridges", RIDGES),
     ("terrain overview", None), ("Geological diversity", None), ("Thermal properties", None), ("Interesting terrain", None), ("", None),
     ("speak to the crew", None),                     # "peak" must not match inside another word
 ])
@@ -218,7 +219,61 @@ def test_the_objectives_endpoint_lists_every_objective_with_its_data_and_limits(
     r = TestClient(app).get("/api/v1/objectives")
     assert r.status_code == 200
     body = r.json()
-    assert [o["id"] for o in body] == [HYDRATED, FLAT_SITES, VANTAGE]
+    assert [o["id"] for o in body] == [HYDRATED, FLAT_SITES, VANTAGE, LOWEST, CLIFFS, RIDGES, CRATERS]
     for o in body:
         assert set(o) == {"id", "label", "description", "keywords", "data_used", "limitation", "kind"}
         assert o["keywords"] and o["data_used"] and o["limitation"] and o["kind"] in ("spectral", "terrain")
+
+
+# -- lowest ground, steep cliffs, ridges and craters ------------------------------------------------------------------
+def terrain(fn, a):
+    return fn(a, BOUNDS, grid_for(a), AID, DID, "https://example.test/mola")
+
+
+def test_a_dip_becomes_a_lowest_ground_target() -> None:
+    a = arrays(slope=2.0)
+    a["elevation_m"][20, 20] = 0.0                                  # 100 m below the flat plain around it
+    out = terrain(F.find_lowest_ground, a)
+    assert len(out.targets) == 1 and out.targets[0].objective_category == LOWEST
+    assert "100 m below" in out.targets[0].title and out.targets[0].evidence[0].measured and not out.targets[0].evidence[-1].measured
+
+
+def test_flat_ground_has_no_lowest_ground_and_says_so() -> None:
+    out = terrain(F.find_lowest_ground, arrays(slope=2.0))
+    assert out.targets == [] and out.warnings
+
+
+def test_a_steep_face_becomes_a_cliff_target_with_its_drop() -> None:
+    a = arrays(slope=2.0)
+    a["slope_deg"][10:14, 10:20] = 30.0
+    a["elevation_m"][10:14, 10:20] = np.linspace(0, 300, 10, dtype=np.float32)
+    out = terrain(F.find_steep_cliffs, a)
+    assert len(out.targets) == 1 and out.targets[0].objective_category == CLIFFS and "dropping 300 m" in out.targets[0].title
+
+
+def test_gentle_ground_has_no_cliffs() -> None:
+    assert terrain(F.find_steep_cliffs, arrays(slope=5.0)).targets == []
+
+
+def test_a_long_narrow_rise_is_a_ridge_and_a_round_hill_is_not() -> None:
+    a = arrays(slope=2.0)
+    a["elevation_m"][20:22, 8:30] += 120.0                           # a 2 x 22 cell crest
+    a["elevation_m"][5:10, 5:10] += 120.0                            # a round hill
+    out = terrain(F.find_ridges, a)
+    assert len(out.targets) == 1 and out.targets[0].objective_category == RIDGES and "long" in out.targets[0].title
+
+
+def test_a_round_bowl_is_a_crater_like_target_and_a_long_trench_is_not() -> None:
+    a = arrays(slope=2.0)
+    yy, xx = np.mgrid[0:40, 0:40]
+    d = np.hypot(yy - 20, xx - 20)
+    a["elevation_m"] = (100.0 - 150.0 * np.clip(1 - d / 4.0, 0, 1) + 60.0 * np.exp(-((d - 5.5) ** 2) / 2.0)).astype(np.float32)   # bowl with a rim
+    out = terrain(F.find_craters, a)
+    assert len(out.targets) == 1 and out.targets[0].objective_category == CRATERS
+    strip = arrays(slope=2.0)
+    strip["elevation_m"][19:21, 5:35] = 20.0                          # a long trench is not round
+    assert terrain(F.find_craters, strip).targets == []
+
+
+def test_every_new_objective_has_a_detector() -> None:
+    assert set(F.DETECTORS) >= {LOWEST, CLIFFS, RIDGES, CRATERS, FLAT_SITES, VANTAGE}

@@ -20,7 +20,8 @@ from app.analyzer.preprocessing.terrain_bundle import build_terrain_bundle, load
 from app.analyzer.publishing.science_layer import ScienceLayer, save_science_layer
 from app.analyzer.science.objectives import HYDRATED, TERRAIN_OBJECTIVES, get_objective, resolve_objective, supported_labels
 from app.analyzer.science.pipeline import ScienceDeps, ScienceOutcome, run_hydrated_minerals
-from app.analyzer.science.terrain_objectives import DETECTORS, TerrainTargets
+from app.analyzer.science.terrain_features import DETECTORS
+from app.analyzer.science.terrain_objectives import TerrainTargets
 from app.analyzer.selection.selector import select_products
 from app.connectors.usgs import mola
 from app.schemas import (

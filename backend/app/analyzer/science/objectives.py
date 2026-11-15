@@ -14,7 +14,11 @@ from dataclasses import dataclass
 HYDRATED = "hydrated_minerals"
 FLAT_SITES = "flat_safe_sites"
 VANTAGE = "high_vantage_points"
-TERRAIN_OBJECTIVES = (FLAT_SITES, VANTAGE)
+LOWEST = "lowest_ground"
+CLIFFS = "steep_cliffs"
+RIDGES = "ridges"
+CRATERS = "craters"
+TERRAIN_OBJECTIVES = (FLAT_SITES, VANTAGE, LOWEST, CLIFFS, RIDGES, CRATERS)
 
 
 @dataclass(frozen=True)
@@ -49,6 +53,34 @@ REGISTRY: tuple[Objective, ...] = (
         keywords=("vantage", "high ground", "highest point", "high point", "summit", "peak", "lookout", "overlook", "hilltop", "viewpoint"),
         data_used=("USGS MOLA 463 m elevation, with slope derived from it",),
         limitation="Heights come from a 463 m global model: a point is the highest cell of a rise, and line of sight is not computed.",
+    ),
+    Objective(
+        id=LOWEST, label="Lowest ground", kind="terrain",
+        description="Local low points and basin floors: ground that sits clearly below its surroundings, where material collects.",
+        keywords=("lowest", "low point", "low ground", "basin", "depression", "lowland", "lowlands", "bottom"),
+        data_used=("USGS MOLA 463 m elevation, with slope derived from it",),
+        limitation="Depths come from a 463 m global model: only basins several cells wide can be seen.",
+    ),
+    Objective(
+        id=CLIFFS, label="Steep cliffs", kind="terrain",
+        description="Connected stretches of steep ground such as scarps and escarpments, with the height they drop.",
+        keywords=("cliff", "cliffs", "scarp", "scarps", "escarpment", "steep terrain", "steep ground", "drop off", "drop-off"),
+        data_used=("USGS MOLA 463 m elevation, with slope derived from it",),
+        limitation="Slopes are averaged over 463 m cells, so only large, long steep faces appear.",
+    ),
+    Objective(
+        id=RIDGES, label="Ridges", kind="terrain",
+        description="Long, narrow rises that stand above the ground around them.",
+        keywords=("ridge", "ridges", "ridgeline", "crest", "crests"),
+        data_used=("USGS MOLA 463 m elevation",),
+        limitation="Found as raised, elongated areas of the 463 m grid, so narrow ridges are missed.",
+    ),
+    Objective(
+        id=CRATERS, label="Craters", kind="terrain",
+        description="Round, bowl-shaped depressions with higher ground around them.",
+        keywords=("crater", "craters", "impact basin", "bowl", "rim", "rims"),
+        data_used=("USGS MOLA 463 m elevation",),
+        limitation="At 463 m per cell only large craters, several kilometres across, can be found.",
     ),
 )
 _BY_ID = {o.id: o for o in REGISTRY}
