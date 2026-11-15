@@ -335,6 +335,21 @@ export const useStore = create<Store>((set, get) => {
       if (!o) {
         const check = await checkObjective(q.slice(0, 300), regionToBounds(region));
         o = check.supported && check.matched_objective_id ? get().objectives.find((x) => x.id === check.matched_objective_id) ?? null : null;
+        if (!o && check.coverage.some((c) => c.analyzable && (c.covered_percent ?? 0) > 0)) {
+          // The catalog has data this tool can read for the area: analyse the terrain there with the existing pipeline, whatever the goal was.
+          await runRealAnalysis(region, true);
+          const done = get().real;
+          if (done) {
+            const t = done.stats, f1 = (v?: number | null) => (typeof v === 'number' ? v.toFixed(1) : 'n/a');
+            finish({
+              r: `I analysed the terrain of this area. It covers ${f1(t.area_km2)} km2, elevation runs from ${f1(t.elevation_min_m)} to ${f1(t.elevation_max_m)} m, the mean slope is ${f1(t.slope_mean_deg)}° (steepest ${f1(t.slope_max_deg)}°) and ${f1(100 * Number(t.slope_exceedance_fraction ?? 0))}% of it is steeper than ${t.slope_limit_deg}°.`,
+              steps: check.coverage.map(coverageLine), actions: [regionAction(region), { label: 'Open full details', open: 'results' }],
+            });
+            return;
+          }
+          finish({ r: get().err || 'The analysis did not finish.', err: true });
+          return;
+        }
         if (!o) {
           finish({ r: check.message, steps: check.coverage.map(coverageLine), ...(check.warnings.length ? { note: check.warnings.join(' ') } : {}), actions: [regionAction(region)] });
           return;
