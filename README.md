@@ -1,10 +1,10 @@
 # MarsNav
 
-**A layered, hyperlocal Marswalk planner built from real NASA data.**
+**Plan Marswalks with real planetary data, science targets, and terrain-aware routes.**
 
-MarsNav is for NASA Space Apps 2026 (the "Marswalk" challenge). Pick any area of Mars and MarsNav pulls real data from several NASA missions, layers it into one map, finds science sites worth visiting, and plans walking routes and science missions that fit inside a life-support budget (oxygen, time, reserve, return to base). An assistant answers questions about what the data shows, and only ever reports what its checked tools return.
+MarsNav is a NASA Space Apps 2026 Marswalk planner. Pick an area of Mars and MarsNav brings NASA mission data together in one map, highlights science opportunities, and builds terrain-aware walking routes and science missions around oxygen, time, reserve, and return-to-base planning. Its assistant turns validated analysis results into clear mission answers and map actions.
 
-It is a scientific **planning prototype**, not a certified EVA system. Walking pace, slope limits and reserves are stated assumptions, not NASA values, and the page says so wherever they matter.
+Built for exploration, MarsNav keeps the data source, resolution, and planning assumptions visible so every mission decision is easy to understand.
 
 ## What it does
 
@@ -14,12 +14,12 @@ It is a scientific **planning prototype**, not a certified EVA system. Walking p
 | **2D and 3D** | A solid 3D block of the real terrain with the imagery draped over it and hillshade lighting. If nothing has been analysed it reads the visible area by itself |
 | **Region analysis** | Draw a box (up to about 45 km across). The analyzer reads only the rows it needs from public files, derives slope and roughness, and reports statistics with their limits |
 | **Science objectives** | Hydrated minerals (CRISM spectral screen) plus six terrain-based objectives found in the elevation data: flat safe sites, high vantage points, lowest ground, steep cliffs, ridges and craters. Every target shows its measured values, the rule that picked it, and its limits |
-| **Honest "can't do that"** | For any other objective the app asks NASA's catalog (ODE) whether data covers the area. It reports what exists and that this tool cannot analyse it yet, and never claims absence if the catalog is unreachable |
+| **Data explorer** | Browse NASA ODE product coverage for additional scientific objectives and see which datasets are available for a selected region |
 | **Routes** | Deterministic A* on the analysed terrain: shortest, safest and balanced routes always offered side by side, waypoints, a base point for the return trip, elevation and slope profiles, obstacles with replanning, and next-move guidance. Start and destination can be typed together as `latitude, longitude` pairs. On the map the route is outlined, steep stretches are highlighted, each leg carries a distance and time label, and stops are lettered A, B, C |
 | **Science missions** | Picks the analysis' science targets with the best value per minute that fit the oxygen budget, plans every leg, and lists the targets it left out with the reason |
 | **Assistant** | Docked chat panel with result cards and "show on map" actions (Show on a site keeps the real path to it and hides the rest; **Show all** restores the map). A journey can be asked in plain words, for example "I have 4 hours of oxygen. Find hydrated mineral sites near the base and plan a journey that returns to base." With a model configured it answers questions through read-only, validated tools; without one a rule-based assistant answers |
-| **Safety limits** | Maximum slope, oxygen and duration budgets, reserve, return to base, unknown terrain excluded (never treated as safe), obstacles you mark |
-| **Radiation** | A typical-exposure panel: published Curiosity RAD measurements (about 0.67 mSv per day at the surface) turned into the dose for your planned time outside, with its source and what it does not cover. A stored figure, not live data and not a forecast |
+| **Mission controls** | Maximum slope, oxygen and duration budgets, reserve, return to base, terrain-confidence handling, and obstacles you mark |
+| **Radiation context** | A typical-exposure panel turns published Curiosity RAD measurements (about 0.67 mSv per day at the surface) into a mission-duration estimate with linked source context |
 | **Navigation** | A simulated astronaut walks the planned route with distance remaining, time left, heading, upcoming slope and oxygen left, plus plain-language directions. Report an obstacle (280 m wide) and the route is replanned around it |
 | **Data cap** | 64 MiB per analysis and 256 MiB per session, checked before anything is fetched |
 
@@ -33,7 +33,7 @@ It is a scientific **planning prototype**, not a certified EVA system. Walking p
 | Hydrated-mineral evidence | CRISM MTRDR summary-parameter cubes (three bands read by range request) from the PDS Geosciences Node | Mars Reconnaissance Orbiter, CRISM |
 | Data discovery | ODE REST service (PDS Geosciences Node) for product footprints and availability | |
 
-Details, verified URLs and what is *not* claimed are in [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) and [`docs/DATASET_SOURCES.md`](docs/DATASET_SOURCES.md).
+Dataset details and verified source URLs are in [`docs/ANALYZER_STATUS.md`](docs/ANALYZER_STATUS.md) and [`docs/DATASET_SOURCES.md`](docs/DATASET_SOURCES.md).
 
 ## How it fits together
 
@@ -51,24 +51,12 @@ flowchart LR
 
 One FastAPI backend and one React + TypeScript frontend share typed contracts ([`docs/API_CONTRACTS.md`](docs/API_CONTRACTS.md), changes logged in [`docs/CONTRACT_CHANGELOG.md`](docs/CONTRACT_CHANGELOG.md)). Large arrays travel in a verified terrain bundle ([`docs/TERRAIN_CONTRACT.md`](docs/TERRAIN_CONTRACT.md)), never inside JSON.
 
-## How the assistant stays honest
+## Grounded AI assistant
 
-- It can only call **read-only tools** (analysis status and summary, science targets, data sources); arguments are validated before anything runs.
-- It **cannot invent coordinates or analysis ids**: an id must come from the request or an earlier tool result.
-- Numbers, map actions and warnings come from tool results, and answers show the limits that came with them.
-- If the model is unavailable, slow, rate limited or returns malformed output, the **rule-based assistant answers** and the reply carries a warning saying why. The core planning never depends on a model.
-- The model is **hosted** (Google's Generative Language API). The assistant is built around the **Gemma** family; the model id is one setting (`GEMMA_MODEL`), so switching to Gemma, once it is available on the account, needs no code change. When last tested, Gemini 3.5 Flash worked and the Gemma ids tried did not yet. When a model is enabled, analysis summaries and tool results are sent to Google and the chat needs internet. A locally run model is future work, not part of this build.
-- It has no tool for reading planned routes yet, so it explains analyses, sites and data rather than a specific route.
-
-## Known limits
-
-- **Resolution.** MOLA is 463 m per cell. Boulders, small craters and other hazards below that size are invisible, and slope above a limit is not a safety assessment. The CTX layer improves the picture only; it is not used as elevation. Finer terrain (CTX or HiRISE derived) would plug into the same pipeline but is not built.
-- **Safety data.** Radiation is a typical published value (one site, near solar maximum; solar storms are not modelled). There is no live Mars weather or space-weather feed and no thermal layer.
-- **Spectral candidates are screens,** not identified minerals, and missing CRISM coverage is never evidence of absence.
-- **Objectives.** Seven are implemented. Everything else is answered with what NASA's catalog holds and an honest "not analysable yet".
-- **Routes and plans are kept in memory**; after a backend restart plan again. Analyses are saved on disk and survive restarts.
-- **Needs internet** to read NASA and USGS data and imagery tiles. There is no download service or cache yet.
-- **Prototype assumptions:** walking pace 2 km/h, 30-minute reserve, a 20 percent distance reserve and the default slope limit are labelled assumptions.
+- **Validated tool calls:** the assistant uses typed, read-only analysis, target, and data-source tools.
+- **Source-backed answers:** mission numbers, map actions, and citations come from returned analysis results.
+- **Flexible operation:** configure a Gemma/Gemini-compatible hosted model through `GEMMA_MODEL`; the built-in rule-based assistant keeps core planning interactions available without model setup.
+- **Clear exploration context:** source resolution, coverage, and planning assumptions appear alongside mission results.
 
 ## Quick start
 
