@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useStore } from '../../store/dashboardStore';
 import type { Tab } from '../../types/ui';
 import { warningsOf } from '../../utils/derive';
@@ -62,6 +62,7 @@ export default function BottomPanel() {
   const { pan, bh, tab, setTab, togglePanel, setPanelHeight } = s;
   const drag = useRef<{ y: number; h: number } | null>(null);
   const open = pan.B;
+  const [menu, setMenu] = useState(false);
   const warnCount = warningsOf(s).filter((x) => x.k !== 'info').length;
   const clamp = (h: number) => Math.max(120, Math.min(window.innerHeight * 0.75, h));
 
@@ -83,6 +84,11 @@ export default function BottomPanel() {
           e.preventDefault(); s.openPanels(false, true); setPanelHeight(clamp(bh + (e.key === 'ArrowUp' ? 30 : -30)));
         }}><i /></div>
       <div id="tb">
+        <button className="tabburger" onClick={() => setMenu((m) => !m)} aria-expanded={menu} aria-label="Choose a panel">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" /></svg>
+          {TABS.find(([k]) => k === tab)?.[1]}
+        </button>
+        {menu && <div className="tabpop">{TABS.map(([k, t]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => { setTab(k); setMenu(false); s.openPanels(false, true); }}>{t}{k === 'warn' && warnCount ? ` (${warnCount})` : ''}</button>)}</div>}
         {TABS.map(([k, t]) => (
           <button key={k} className={'tab' + (tab === k ? ' on' : '')} onClick={() => setTab(k)}>{t}{k === 'warn' && warnCount ? ` (${warnCount})` : ''}</button>
         ))}

@@ -82,7 +82,7 @@ const initial: DataState = {
   obs: [], prev: null, nav: null, tab: 'elev', focus: null, showOnly: null, online: true, cache: false,
   job: null, err: '', stale: false, selT: null, real: null,
   pk: [{ n: 'Jezero region package (demo)', sz: '148 MB', st: 'Downloaded', up: '2026-11-12' }],
-  pan: { L: true, R: false, B: false }, bh: 220, adv: false, lyOpen: false,
+  pan: { L: typeof window === 'undefined' || window.innerWidth > 800, R: false, B: false }, bh: 220, adv: false, lyOpen: false,
   layers: defaultLayers(), chat: [], aiOpen: false, aiDraft: '', aiBar: null, focusZoom: null, assistantMode: null, assistantModel: null, pendingQ: null, objectives: FALLBACK_OBJECTIVES, dataBudget: null, routeSource: 'simulated', missionSource: 'simulated', routeNotes: [], guideText: null,
 };
 

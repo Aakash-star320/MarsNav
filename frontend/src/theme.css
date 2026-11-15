@@ -395,3 +395,31 @@ th { letter-spacing: 0.05em; }
 .lr span { width: 72px; }
 .lr b { min-width: 74px; flex: 1 1 74px; white-space: normal; overflow-wrap: normal; word-break: keep-all; }
 .lr button { flex: none; white-space: nowrap; padding: 6px 10px; }
+
+/* Phones and small windows: icon buttons instead of text, menus instead of rows of tabs */
+.burger, .tabburger { display: none; }
+.burger { width: 40px; height: 40px; place-items: center; border-radius: 12px; border: 1px solid var(--line2); background: rgba(255, 255, 255, 0.04); color: var(--tx); cursor: pointer; flex: none; }
+.tabburger { align-items: center; gap: 8px; padding: 6px 12px; border-radius: 10px; font-weight: 600; }
+.tabpop { position: fixed; left: 10px; bottom: 66px; z-index: 40; min-width: 200px; display: flex; flex-direction: column; padding: 6px; border-radius: 12px; background: #0b121f; border: 1px solid var(--line2); box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.5); }
+.tabpop button { text-align: left; padding: 10px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--tx2); }
+.tabpop button.on { background: var(--tealbg); color: var(--teal); }
+#tb { position: relative; }
+@media (max-width: 800px) {
+  .burger { display: grid; }
+  .tabburger { display: inline-flex; }
+  #tb .tab { display: none; }
+  #tb > .nt { display: none; }
+  .topbar { gap: 8px; padding: 0 10px; }
+  .topbar .hchips { display: none; }
+  .topbar h1 { font-size: 17px; }
+  .online .t { display: none; }
+  .online { padding: 0 12px; }
+  .hright { gap: 8px; margin-left: auto; }
+  .hright .pri.inline { width: 40px; height: 40px; padding: 0; justify-content: center; border-radius: 12px; }
+  .hright .pri.inline .lbl { display: none; }
+  #L.col, #R.col { display: none; }
+  #L:not(.col), #R:not(.col) { position: absolute; top: 0; bottom: 0; z-index: 9; width: min(330px, 90%); }
+  #L:not(.col) { left: 0; }
+  #R:not(.col) { right: 0; }
+  #C { width: 100%; z-index: 10; }
+}
