@@ -260,7 +260,7 @@ export default function MapCanvas() {
           {s.start && <Marker p={s.start} k={k} color="#16a34a" glyph="A" label="Start" />}
           {!only && s.dest && <Marker p={s.dest} k={k} color="#dc2626" glyph={letter(s.wps.length + 1)} label="Destination" />}
           {s.focus && <Pin p={s.focus} k={k}><circle r={22} fill="#e8aa3c33" stroke="#e8aa3c" strokeWidth={2} /></Pin>}
-          {navP && <Pin p={navP} k={k}><circle r={16} fill="#4285f4" opacity={0.22} /><circle r={8} fill="#4285f4" stroke="#fff" strokeWidth={3} /><Tag text="Simulated astronaut" x={14} y={-14} /></Pin>}
+          {navP && <Pin p={navP} k={k}><circle r={16} fill="#4285f4" opacity={0.22} /><circle r={8} fill="#4285f4" stroke="#fff" strokeWidth={3} /><Tag text="Astronaut" x={14} y={-14} /></Pin>}
           {rubber && <rect x={Math.min(rubber.a.x, rubber.b.x)} y={Math.min(rubber.a.y, rubber.b.y)} width={Math.abs(rubber.b.x - rubber.a.x)} height={Math.abs(rubber.b.y - rubber.a.y)} fill="#2dd4d022" stroke="#2dd4d0" strokeDasharray="6 3" vectorEffect={NS} />}
         </g>
       </svg>
