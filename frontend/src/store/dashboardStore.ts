@@ -553,7 +553,10 @@ export const useStore = create<Store>((set, get) => {
       set({ pick: null, err: '' });
       if (k === 'wp') { set({ wps: [...s.wps, p] }); clearResults(); }
       else if (k === 'obs') {
-        set({ obs: [...s.obs, { x: p.x, y: p.y, r: 35 }] });
+        const R_OBS = 14;                                                  // 280 m: a boulder field or crevasse, not a whole region
+        const hit = [s.dest, s.nav ? null : s.start].filter((q): q is Pt => !!q).some((q) => Math.hypot(q.x - p.x, q.y - p.y) < R_OBS + 6);
+        if (hit) { set({ err: 'Place the obstacle on the path between you and the destination, not on the destination itself.' }); return; }
+        set({ obs: [...s.obs, { x: p.x, y: p.y, r: R_OBS }] });
         if (s.routes.length || s.mission) get().replan();
       } else if (k === 'cur') {
         const c = combined(s);
